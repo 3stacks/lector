@@ -15,15 +15,20 @@ export interface BookProgress {
   percentComplete: number;
 }
 
+export type BookFileType = 'epub' | 'pdf' | 'markdown';
+
 export interface Book {
   id: string;
   title: string;
   author: string;
   coverUrl?: string;
-  epubData: ArrayBuffer;
+  fileData: ArrayBuffer;
+  fileType: BookFileType;
   progress: BookProgress;
   createdAt: Date;
   lastReadAt: Date;
+  // For markdown, store the raw text for easier access
+  textContent?: string;
 }
 
 export interface ReadingPosition {

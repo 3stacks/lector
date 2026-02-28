@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, use, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Reader from '@/components/Reader';
+import MarkdownReader from '@/components/MarkdownReader';
 import {
   type Book,
   type VocabEntry,
@@ -296,7 +297,15 @@ export default function ReadPage({
     <div className="h-screen flex flex-col bg-white dark:bg-zinc-900">
       {/* Reader */}
       <div className="flex-1 relative overflow-hidden">
-        <Reader book={book} onWordClick={handleWordClick} onClose={handleClose} refreshTrigger={readerRefreshTrigger} />
+        {book.fileType === 'markdown' ? (
+          <MarkdownReader book={book} onWordClick={handleWordClick} onClose={handleClose} refreshTrigger={readerRefreshTrigger} />
+        ) : book.fileType === 'pdf' ? (
+          <div className="flex items-center justify-center h-full text-zinc-500">
+            PDF support coming soon
+          </div>
+        ) : (
+          <Reader book={book} onWordClick={handleWordClick} onClose={handleClose} refreshTrigger={readerRefreshTrigger} />
+        )}
       </div>
 
       {/* Compact word translation bar */}

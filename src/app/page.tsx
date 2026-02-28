@@ -12,6 +12,7 @@ import {
   getRecentStats,
   type Book,
   type BookProgress,
+  type BookFileType,
 } from '@/lib/db';
 
 export default function Home() {
@@ -91,12 +92,21 @@ export default function Home() {
     fileInputRef.current?.click();
   }
 
+  function getFileType(filename: string): BookFileType | null {
+    const ext = filename.toLowerCase().split('.').pop();
+    if (ext === 'epub') return 'epub';
+    if (ext === 'pdf') return 'pdf';
+    if (ext === 'md' || ext === 'markdown') return 'markdown';
+    return null;
+  }
+
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.endsWith('.epub')) {
-      alert('Please select an EPUB file');
+    const fileType = getFileType(file.name);
+    if (!fileType) {
+      alert('Please select an EPUB, PDF, or Markdown file');
       return;
     }
 
@@ -104,20 +114,15 @@ export default function Home() {
 
     try {
       const arrayBuffer = await file.arrayBuffer();
+      const baseName = file.name.replace(/\.[^/.]+$/, '');
 
-      // Parse EPUB to extract metadata
-      const ePub = await import('epubjs');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const epubBook = ePub.default(arrayBuffer) as any;
-      await epubBook.ready;
-      const metadata = await epubBook.loaded.metadata;
-
-      const newBook: Book = {
+      let newBook: Book = {
         id: uuidv4(),
-        title: metadata.title || file.name.replace('.epub', ''),
-        author: metadata.creator || 'Unknown Author',
-        coverUrl: undefined, // We'll extract cover later if needed
-        epubData: arrayBuffer,
+        title: baseName,
+        author: 'Unknown Author',
+        coverUrl: undefined,
+        fileData: arrayBuffer,
+        fileType,
         progress: {
           chapter: 0,
           scrollPosition: 0,
@@ -127,21 +132,44 @@ export default function Home() {
         lastReadAt: new Date(),
       };
 
-      // Try to extract cover
-      try {
-        const cover = await epubBook.coverUrl();
-        if (cover) {
-          newBook.coverUrl = cover;
+      if (fileType === 'epub') {
+        // Parse EPUB to extract metadata
+        const ePub = await import('epubjs');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const epubBook = ePub.default(arrayBuffer) as any;
+        await epubBook.ready;
+        const metadata = await epubBook.loaded.metadata;
+
+        newBook.title = metadata.title || baseName;
+        newBook.author = metadata.creator || 'Unknown Author';
+
+        // Try to extract cover
+        try {
+          const cover = await epubBook.coverUrl();
+          if (cover) {
+            newBook.coverUrl = cover;
+          }
+        } catch {
+          // Cover extraction failed, that's okay
         }
-      } catch {
-        // Cover extraction failed, that's okay
+      } else if (fileType === 'markdown') {
+        // Store text content for markdown files
+        const textContent = new TextDecoder().decode(arrayBuffer);
+        newBook.textContent = textContent;
+
+        // Try to extract title from first heading
+        const titleMatch = textContent.match(/^#\s+(.+)$/m);
+        if (titleMatch) {
+          newBook.title = titleMatch[1].trim();
+        }
       }
+      // PDF metadata extraction could be added later if needed
 
       await saveBook(newBook);
       setBooks((prev) => [newBook, ...prev]);
     } catch (error) {
-      console.error('Error importing book:', error);
-      alert('Failed to import book. Please ensure it is a valid EPUB file.');
+      console.error('Error importing file:', error);
+      alert('Failed to import file. Please ensure it is a valid file.');
     } finally {
       setIsImporting(false);
       // Reset the input
@@ -239,7 +267,7 @@ export default function Home() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".epub"
+              accept=".epub,.pdf,.md,.markdown"
               onChange={handleFileChange}
               className="hidden"
             />
@@ -282,7 +310,7 @@ function EmptyState({ onImport }: { onImport: () => void }) {
         No books in your library
       </h3>
       <p className="mb-6 max-w-sm text-sm text-zinc-500 dark:text-zinc-400">
-        Import an Afrikaans EPUB book to start learning. Your vocabulary and progress will be
+        Import an Afrikaans book (EPUB, PDF, or Markdown) to start learning. Your vocabulary and progress will be
         tracked as you read.
       </p>
       <button
@@ -297,7 +325,7 @@ function EmptyState({ onImport }: { onImport: () => void }) {
             d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
           />
         </svg>
-        Import EPUB Book
+        Import Book
       </button>
     </div>
   );

@@ -273,7 +273,7 @@ export default function SettingsPage() {
         books: await Promise.all(
           data.books.map(async (book) => ({
             ...book,
-            epubData: arrayBufferToBase64(book.epubData),
+            fileData: arrayBufferToBase64(book.fileData),
           }))
         ),
         exportedAt: new Date().toISOString(),
@@ -304,10 +304,12 @@ export default function SettingsPage() {
       // Import books (convert base64 back to ArrayBuffer)
       if (data.books && Array.isArray(data.books)) {
         for (const book of data.books) {
-          const epubData = base64ToArrayBuffer(book.epubData);
+          // Handle both old (epubData) and new (fileData) formats
+          const fileData = base64ToArrayBuffer(book.fileData || book.epubData);
           await db.books.put({
             ...book,
-            epubData,
+            fileData,
+            fileType: book.fileType || 'epub',
             createdAt: new Date(book.createdAt),
             lastReadAt: new Date(book.lastReadAt),
           });

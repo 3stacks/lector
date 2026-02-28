@@ -494,13 +494,19 @@ export default function VocabPage() {
     }
 
     try {
-      const wordStates = await syncWordStates();
+      // Get deck name from settings
+      const deckName = localStorage.getItem("afrikaans-reader-anki-deck") || ankiDeck;
+      console.log(`Syncing with Anki deck: "${deckName}"`);
+      const wordStates = await syncWordStates(deckName);
+      console.log(`Found ${wordStates.size} words in Anki`);
       let updatedCount = 0;
+      let matchedCount = 0;
 
       // Update entries based on Anki intervals
       for (const entry of entries) {
         const ankiData = wordStates.get(entry.text.toLowerCase());
         if (ankiData) {
+          matchedCount++;
           // Map interval to state:
           // 0-1 days: level1
           // 2-7 days: level2
@@ -530,15 +536,13 @@ export default function VocabPage() {
       await loadData();
       showNotification(
         "success",
-        updatedCount > 0
-          ? `Synced with Anki: ${updatedCount} entries updated`
-          : "Synced with Anki: all entries up to date"
+        `Found ${wordStates.size} cards in "${deckName}". Matched ${matchedCount} vocab entries, updated ${updatedCount}.`
       );
     } catch (error) {
       console.error("Failed to sync with Anki:", error);
       showNotification("error", "Failed to sync with Anki");
     }
-  }, [entries, ankiConnected]);
+  }, [entries, ankiConnected, ankiDeck]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">

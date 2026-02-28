@@ -194,13 +194,19 @@ export async function addClozeCard(
  * This queries Anki for cards with the afrikaans-reader tag and returns
  * their intervals, which can be used to determine mastery level
  */
-export async function syncWordStates(): Promise<
+export async function syncWordStates(deckName?: string): Promise<
   Map<string, { interval: number; deckName: string }>
 > {
-  // Find all cards with our tag
-  const cardIds = await ankiRequest<number[]>("findCards", {
-    query: "tag:afrikaans-reader",
-  });
+  // Find cards - either by tag or by deck name
+  let query = "tag:afrikaans-reader";
+  if (deckName) {
+    // Search in the specified deck OR with our tag
+    query = `("deck:${deckName}" OR tag:afrikaans-reader)`;
+  }
+
+  console.log(`Anki sync query: ${query}`);
+  const cardIds = await ankiRequest<number[]>("findCards", { query });
+  console.log(`Found ${cardIds.length} cards in Anki`);
 
   if (cardIds.length === 0) {
     return new Map();
@@ -216,13 +222,46 @@ export async function syncWordStates(): Promise<
 
   for (const card of cardsInfo) {
     // Extract the target word from the card
-    // This depends on how we format cards - look for bold text
-    const frontField =
-      card.fields["Front"]?.value || card.fields["Text"]?.value || "";
-    const wordMatch = frontField.match(/<b>([^<]+)<\/b>/);
+    // Try multiple strategies:
+    // 1. Look for bold text (our format): <b>word</b>
+    // 2. Look for a "Word" field
+    // 3. Use plain Front field (typical vocab cards)
+    // 4. Use plain Text field (cloze cards)
 
-    if (wordMatch) {
-      const word = wordMatch[1].toLowerCase();
+    let word: string | null = null;
+
+    const frontField = card.fields["Front"]?.value || "";
+    const textField = card.fields["Text"]?.value || "";
+    const wordField = card.fields["Word"]?.value || "";
+
+    // Strategy 1: Bold text in front/text field
+    const boldMatch = (frontField || textField).match(/<b>([^<]+)<\/b>/);
+    if (boldMatch) {
+      word = boldMatch[1];
+    }
+    // Strategy 2: Dedicated Word field
+    else if (wordField) {
+      word = wordField.replace(/<[^>]*>/g, '').trim(); // Strip HTML
+    }
+    // Strategy 3: Plain front field (single word or short phrase)
+    else if (frontField) {
+      // Strip HTML and get first word if it's just a simple vocab card
+      const plainText = frontField.replace(/<[^>]*>/g, '').trim();
+      // Only use if it looks like a single word/short phrase (no sentences)
+      if (plainText.length < 50 && !plainText.includes('.')) {
+        word = plainText.split(/\s+/)[0]; // Get first word
+      }
+    }
+    // Strategy 4: Cloze - extract from {{c1::word}} pattern
+    else if (textField) {
+      const clozeMatch = textField.match(/\{\{c\d+::([^}]+)\}\}/);
+      if (clozeMatch) {
+        word = clozeMatch[1];
+      }
+    }
+
+    if (word) {
+      word = word.toLowerCase().trim();
       // Keep the card with the highest interval (most learned)
       const existing = wordStates.get(word);
       if (!existing || card.interval > existing.interval) {
@@ -234,6 +273,8 @@ export async function syncWordStates(): Promise<
     }
   }
 
+  console.log(`Extracted ${wordStates.size} unique words from Anki cards:`,
+    Array.from(wordStates.keys()).slice(0, 10).join(', ') + (wordStates.size > 10 ? '...' : ''));
   return wordStates;
 }
 

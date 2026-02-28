@@ -242,7 +242,8 @@ export default function Reader({ book, onWordClick, onClose, refreshTrigger = 0 
 
   // Initialize epub
   useEffect(() => {
-    if (!containerRef.current || !book.epubData) return;
+    if (!containerRef.current || !book.fileData) return;
+    if (book.fileType && book.fileType !== 'epub') return; // Only handle epub here
 
     const initEpub = async () => {
       try {
@@ -250,7 +251,7 @@ export default function Reader({ book, onWordClick, onClose, refreshTrigger = 0 
         setError(null);
 
         // Create book from ArrayBuffer
-        const epub = ePub(book.epubData);
+        const epub = ePub(book.fileData);
         epubRef.current = epub;
 
         await epub.opened;
@@ -357,7 +358,7 @@ export default function Reader({ book, onWordClick, onClose, refreshTrigger = 0 
         epubRef.current.destroy();
       }
     };
-  }, [book.id, book.epubData, isDarkMode, wrapWordsInSpans, extractSentences, readingMode]);
+  }, [book.id, book.fileData, book.fileType, isDarkMode, wrapWordsInSpans, extractSentences, readingMode]);
 
   // Navigation handlers
   const handlePrev = useCallback(() => {
