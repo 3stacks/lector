@@ -14,25 +14,25 @@ import {
 
 type ReadingMode = 'page' | 'sentence';
 
-// Color mapping for word states in page mode
+// Color mapping for word states in page mode - subtle underlines
 const stateColors: Record<WordState, string> = {
-  new: 'background-color: #bfdbfe; color: #1e3a8a;', // blue-200 / blue-900
-  level1: 'background-color: #fef08a; color: #713f12;', // yellow-200 / yellow-900
-  level2: 'background-color: #fef9c3; color: #854d0e;', // yellow-100 / yellow-800
-  level3: 'background-color: #fefce8; color: #a16207;', // yellow-50 / yellow-700
-  level4: 'background-color: #f4f4f5; color: #3f3f46;', // zinc-100 / zinc-700
+  new: 'border-bottom: 2px solid #93c5fd;', // soft blue underline
+  level1: 'border-bottom: 2px solid #fcd34d;', // yellow underline
+  level2: 'border-bottom: 1px solid #fcd34d;', // thinner yellow
+  level3: 'border-bottom: 1px dashed #d4d4d8;', // dashed gray
+  level4: '', // almost known, no highlight
   known: '',
-  ignored: 'color: #a1a1aa;', // zinc-400
+  ignored: 'opacity: 0.5;',
 };
 
 const darkStateColors: Record<WordState, string> = {
-  new: 'background-color: #1e40af; color: #dbeafe;', // blue-800 / blue-100
-  level1: 'background-color: #a16207; color: #fef9c3;', // yellow-700 / yellow-100
-  level2: 'background-color: rgba(161, 98, 7, 0.7); color: #fef08a;', // yellow-800/70 / yellow-200
-  level3: 'background-color: rgba(113, 63, 18, 0.5); color: #fde047;', // yellow-900/50 / yellow-300
-  level4: 'background-color: #3f3f46; color: #d4d4d8;', // zinc-700 / zinc-300
+  new: 'border-bottom: 2px solid #3b82f6;', // blue underline
+  level1: 'border-bottom: 2px solid #ca8a04;', // yellow underline
+  level2: 'border-bottom: 1px solid #ca8a04;', // thinner yellow
+  level3: 'border-bottom: 1px dashed #52525b;', // dashed gray
+  level4: '', // almost known, no highlight
   known: '',
-  ignored: 'color: #71717a;', // zinc-500
+  ignored: 'opacity: 0.4;',
 };
 
 interface ReaderProps {
@@ -270,31 +270,31 @@ export default function Reader({ book, onWordClick, onClose, refreshTrigger = 0 
         renditionRef.current = rendition;
 
         // Apply theme - epub.js expects CSS rules as strings
-        // Using a serif font stack optimized for reading
+        // Clean, readable typography
         rendition.themes.default({
           body: `
             font-family: Charter, 'Bitstream Charter', 'Sitka Text', Cambria, Georgia, serif !important;
-            font-size: 20px !important;
-            line-height: 1.8 !important;
-            padding: 40px 24px !important;
-            max-width: 38em !important;
+            font-size: 24px !important;
+            line-height: 2 !important;
+            padding: 48px 32px !important;
+            max-width: 32em !important;
             margin: 0 auto !important;
-            color: ${isDarkMode ? '#e4e4e7' : '#27272a'} !important;
-            background-color: ${isDarkMode ? '#18181b' : '#fffef8'} !important;
+            color: ${isDarkMode ? '#d4d4d8' : '#3f3f46'} !important;
+            background-color: ${isDarkMode ? '#18181b' : '#fefefe'} !important;
             text-rendering: optimizeLegibility !important;
             -webkit-font-smoothing: antialiased !important;
+            letter-spacing: 0.01em !important;
           `,
           'p': `
-            margin-bottom: 1.2em !important;
+            margin-bottom: 1.5em !important;
             text-align: left !important;
-            hyphens: auto !important;
           `,
           'p, div, span': `color: inherit;`,
           'h1, h2, h3, h4, h5, h6': `
             font-family: system-ui, -apple-system, sans-serif !important;
-            line-height: 1.3 !important;
+            line-height: 1.4 !important;
             margin-top: 1.5em !important;
-            margin-bottom: 0.5em !important;
+            margin-bottom: 0.75em !important;
             color: ${isDarkMode ? '#fafafa' : '#18181b'} !important;
           `,
           'a': `color: ${isDarkMode ? '#60a5fa' : '#2563eb'};`,
@@ -432,7 +432,7 @@ export default function Reader({ book, onWordClick, onClose, refreshTrigger = 0 
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#fffef8] dark:bg-zinc-900">
+    <div className="flex flex-col h-full bg-[#fefefe] dark:bg-zinc-900">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-2 border-b border-zinc-200 dark:border-zinc-700">
         <button
@@ -537,7 +537,7 @@ export default function Reader({ book, onWordClick, onClose, refreshTrigger = 0 
         }}
         className="flex-1 relative overflow-hidden flex justify-center outline-none">
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-[#fffef8] dark:bg-zinc-900 z-10">
+          <div className="absolute inset-0 flex items-center justify-center bg-[#fefefe] dark:bg-zinc-900 z-10">
             <div className="flex flex-col items-center gap-4">
               <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
               <p className="text-zinc-600 dark:text-zinc-400">Loading book...</p>

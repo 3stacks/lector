@@ -1,8 +1,13 @@
 // AnkiConnect API client
-// AnkiConnect must be running on localhost:8765 (default port)
+import { getSetting } from './db';
 
-const ANKI_CONNECT_URL = "http://localhost:8765";
+const DEFAULT_ANKI_URL = "http://localhost:8765";
 const ANKI_CONNECT_VERSION = 6;
+
+async function getAnkiUrl(): Promise<string> {
+  const url = await getSetting<string>('ankiConnectUrl');
+  return url || DEFAULT_ANKI_URL;
+}
 
 // Types
 interface AnkiConnectRequest {
@@ -37,8 +42,10 @@ async function ankiRequest<T>(
     params,
   };
 
+  const ankiUrl = await getAnkiUrl();
+
   try {
-    const response = await fetch(ANKI_CONNECT_URL, {
+    const response = await fetch(ankiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -8,6 +8,8 @@ import {
   exportAllData,
   clearAllData,
   bulkUpdateWordStates,
+  getSetting,
+  setSetting,
   type VocabEntry,
   type KnownWord,
   type WordState,
@@ -51,6 +53,7 @@ export default function SettingsPage() {
   const [ankiDecks, setAnkiDecks] = useState<string[]>([]);
   const [ankiLoading, setAnkiLoading] = useState(false);
   const [ankiError, setAnkiError] = useState<string | null>(null);
+  const [ankiConnectUrl, setAnkiConnectUrl] = useState("http://localhost:8765");
 
   // Import state
   const [importText, setImportText] = useState("");
@@ -80,6 +83,11 @@ export default function SettingsPage() {
 
     // Apply theme on load
     applyTheme(loadedSettings.theme);
+
+    // Load AnkiConnect URL from IndexedDB
+    getSetting<string>('ankiConnectUrl').then((url) => {
+      if (url) setAnkiConnectUrl(url);
+    });
   }, []);
 
   // Check Anki connection
@@ -497,6 +505,26 @@ export default function SettingsPage() {
                 {ankiError}
               </div>
             )}
+
+            {/* AnkiConnect URL */}
+            <div className="mb-4">
+              <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                AnkiConnect URL
+              </label>
+              <input
+                type="text"
+                value={ankiConnectUrl}
+                onChange={(e) => {
+                  setAnkiConnectUrl(e.target.value);
+                  setSetting('ankiConnectUrl', e.target.value);
+                }}
+                placeholder="http://localhost:8765"
+                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+              />
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
+                Use Tailscale IP for remote Anki (e.g., http://100.x.x.x:8765)
+              </p>
+            </div>
 
             {/* Deck Selector */}
             <div className="mb-4">
