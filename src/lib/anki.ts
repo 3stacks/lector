@@ -162,6 +162,8 @@ export async function addClozeCard(
   translation: string,
   wordMeaning: string
 ): Promise<number> {
+  console.log(`[Anki] Adding cloze card to deck "${deckName}" for word "${targetWord}"`);
+
   await ensureDeckExists(deckName);
 
   // Create cloze deletion by replacing the target word
@@ -170,7 +172,9 @@ export async function addClozeCard(
     "{{c1::$1}}"
   );
 
-  const noteId = await ankiRequest<number>("addNote", {
+  console.log(`[Anki] Cloze text: ${clozeText}`);
+
+  const noteId = await ankiRequest<number | null>("addNote", {
     note: {
       deckName,
       modelName: "Cloze",
@@ -179,13 +183,18 @@ export async function addClozeCard(
         Extra: `<b>${targetWord}</b> = ${wordMeaning}`,
       },
       options: {
-        allowDuplicate: false,
-        duplicateScope: "deck",
+        allowDuplicate: true, // Allow duplicates - user may want the same word from different sentences
       },
       tags: ["afrikaans-reader", "vocabulary", "cloze"],
     },
   });
 
+  // AnkiConnect returns null if the note couldn't be added
+  if (noteId === null) {
+    throw new Error("Failed to add note - check that 'Cloze' note type exists with 'Text' and 'Extra' fields");
+  }
+
+  console.log(`[Anki] Successfully added note with ID: ${noteId}`);
   return noteId;
 }
 
