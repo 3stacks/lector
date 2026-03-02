@@ -82,6 +82,10 @@ export default function ReadPage({
   const handleWordClick = useCallback(async (word: string, sentence: string) => {
     const isPhrase = word.includes(' ');
 
+    // Auto-play TTS for word/phrase (limit to 15 words)
+    const wordsToSpeak = word.split(/\s+/).slice(0, 15).join(' ');
+    speak(wordsToSpeak);
+
     // Check if word/phrase already exists in vocab
     const existingEntry = await getVocabByText(word.toLowerCase());
     const hasTranslation = existingEntry?.translation && existingEntry.translation.length > 0;
