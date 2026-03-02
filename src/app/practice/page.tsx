@@ -484,7 +484,17 @@ export default function PracticePage() {
 
   // Handle add to Anki
   const handleAddToAnki = async () => {
-    if (!current || !feedbackData || !feedbackData.isCorrect || isAddingToAnki || ankiAdded) return;
+    console.log('[Anki] handleAddToAnki called', {
+      hasCurrent: !!current,
+      hasFeedback: !!feedbackData,
+      isCorrect: feedbackData?.isCorrect,
+      isAddingToAnki,
+      ankiAdded
+    });
+    if (!current || !feedbackData || !feedbackData.isCorrect || isAddingToAnki || ankiAdded) {
+      console.log('[Anki] Returning early from handleAddToAnki');
+      return;
+    }
 
     setIsAddingToAnki(true);
     setAnkiError(null);
