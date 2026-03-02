@@ -667,9 +667,9 @@ export default function VocabPage() {
           </div>
         )}
 
-        {/* Vocabulary List */}
+        {/* Vocabulary List - exclude ignored words */}
         <VocabList
-          entries={entries}
+          entries={entries.filter(e => e.state !== 'ignored')}
           books={books}
           onEntryClick={handleEntryClick}
           onExportToAnki={handleExportToAnki}
