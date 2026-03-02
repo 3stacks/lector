@@ -313,6 +313,11 @@ export default function VocabPage() {
   useEffect(() => {
     loadData();
     checkAnkiConnection();
+    // Load deck name from settings
+    const savedDeck = localStorage.getItem("afrikaans-reader-anki-deck");
+    if (savedDeck) {
+      setAnkiDeck(savedDeck);
+    }
   }, []);
 
   const loadData = async () => {
