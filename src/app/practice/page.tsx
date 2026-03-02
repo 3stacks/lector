@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import NavHeader from '@/components/NavHeader';
-import ClozeInput, { ClozeInputHandle } from '@/components/ClozeInput';
+// ClozeInput component no longer used - inline input in sentence
 import ClozeFeedback from '@/components/ClozeFeedback';
 import {
   db,
@@ -36,10 +36,38 @@ function createBlankedSentence(sentence: string, wordIndex: number): string {
   return words.join(' ');
 }
 
+// Helper function to normalize text for comparison
+function normalize(s: string): string {
+  return s.toLowerCase().replace(/[.,!?;:'"]/g, '').trim();
+}
+
 // Helper function to check answer (case-insensitive, ignores punctuation)
 function checkAnswer(userAnswer: string, correctWord: string): boolean {
-  const normalize = (s: string) => s.toLowerCase().replace(/[.,!?;:'"]/g, '').trim();
   return normalize(userAnswer) === normalize(correctWord);
+}
+
+// Fuzzy match status for live feedback
+type FuzzyStatus = 'empty' | 'match' | 'partial' | 'wrong';
+
+function getFuzzyStatus(userInput: string, correctWord: string): FuzzyStatus {
+  if (!userInput.trim()) return 'empty';
+
+  const input = normalize(userInput);
+  const correct = normalize(correctWord);
+
+  // Exact match
+  if (input === correct) return 'match';
+
+  // Check if input is a prefix of the correct word (on track)
+  if (correct.startsWith(input)) return 'partial';
+
+  // Check if correct word starts with the input (typo tolerance)
+  // Also check if they share a common prefix of at least 2 chars
+  const commonPrefixLength = [...input].findIndex((char, i) => correct[i] !== char);
+  if (commonPrefixLength === -1) return 'partial'; // input is prefix
+  if (commonPrefixLength >= 2 && commonPrefixLength >= input.length * 0.6) return 'partial';
+
+  return 'wrong';
 }
 
 // Calculate next review date based on mastery level
@@ -114,7 +142,7 @@ export default function PracticePage() {
   const [isAddingToAnki, setIsAddingToAnki] = useState(false);
   const [ankiAdded, setAnkiAdded] = useState(false);
 
-  const inputRef = useRef<ClozeInputHandle>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Load collection counts
   const refreshCollectionCounts = useCallback(async () => {
@@ -502,53 +530,99 @@ export default function PracticePage() {
           )}
 
           {/* Practice state */}
-          {state === 'practicing' && current && (
-            <div>
-              {/* Sentence display */}
-              <div className="mb-6">
-                <div className="mb-2">
-                  <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                    Fill in the blank
-                  </span>
-                </div>
-                <p className="text-xl font-medium leading-relaxed text-zinc-900 dark:text-zinc-50">
-                  {current.blankedSentence.split('_____').map((part, i, arr) => (
-                    <span key={i}>
-                      {part}
-                      {i < arr.length - 1 && (
-                        <span className="inline-block min-w-[80px] border-b-2 border-blue-500 text-center text-blue-500 dark:border-blue-400 dark:text-blue-400">
-                          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                        </span>
-                      )}
+          {state === 'practicing' && current && (() => {
+            const fuzzyStatus = getFuzzyStatus(userAnswer, current.sentence.clozeWord);
+            const inputColorClass = {
+              empty: 'border-blue-400 bg-blue-50 dark:bg-blue-950/50',
+              match: 'border-green-500 bg-green-50 dark:bg-green-950/50',
+              partial: 'border-green-400 bg-green-50/50 dark:bg-green-950/30',
+              wrong: 'border-red-400 bg-red-50 dark:bg-red-950/50',
+            }[fuzzyStatus];
+
+            const words = current.sentence.sentence.split(/\s+/);
+
+            return (
+              <div>
+                {/* Sentence with inline input */}
+                <div className="mb-6">
+                  <div className="mb-4">
+                    <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                      Fill in the blank
                     </span>
-                  ))}
-                </p>
-                {/* English translation */}
-                <p className="mt-2 text-base text-zinc-500 dark:text-zinc-400 italic">
-                  {current.sentence.translation}
-                </p>
-              </div>
-
-              {/* Input */}
-              <ClozeInput
-                ref={inputRef}
-                value={userAnswer}
-                onChange={setUserAnswer}
-                onSubmit={handleSubmit}
-              />
-
-              {/* Mastery indicator */}
-              <div className="mt-4 flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-                <span>Current mastery:</span>
-                <div className="flex h-2 w-24 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-                  <div
-                    className="bg-blue-500 transition-all"
-                    style={{ width: `${current.sentence.masteryLevel}%` }}
-                  />
+                  </div>
+                  <p className="text-xl font-medium leading-loose text-zinc-900 dark:text-zinc-50">
+                    {words.map((word, i) => (
+                      <span key={i}>
+                        {i > 0 && ' '}
+                        {i === current.sentence.clozeIndex ? (
+                          <input
+                            ref={inputRef}
+                            type="text"
+                            value={userAnswer}
+                            onChange={(e) => setUserAnswer(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && userAnswer.trim()) {
+                                e.preventDefault();
+                                handleSubmit();
+                              }
+                            }}
+                            autoComplete="off"
+                            autoCapitalize="off"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            placeholder="..."
+                            className={`inline-block w-32 rounded-lg border-2 px-2 py-1 text-center text-xl font-medium outline-none transition-all
+                              focus:ring-2 focus:ring-offset-1
+                              ${inputColorClass}
+                              ${fuzzyStatus === 'match' ? 'text-green-700 dark:text-green-300 focus:ring-green-400' : ''}
+                              ${fuzzyStatus === 'partial' ? 'text-green-600 dark:text-green-400 focus:ring-green-400' : ''}
+                              ${fuzzyStatus === 'wrong' ? 'text-red-600 dark:text-red-400 focus:ring-red-400' : ''}
+                              ${fuzzyStatus === 'empty' ? 'text-zinc-900 dark:text-zinc-100 focus:ring-blue-400' : ''}
+                            `}
+                            style={{ minWidth: `${Math.max(word.length * 0.7, 4)}ch` }}
+                          />
+                        ) : (
+                          word
+                        )}
+                      </span>
+                    ))}
+                  </p>
+                  {/* English translation */}
+                  <p className="mt-3 text-base text-zinc-500 dark:text-zinc-400 italic">
+                    {current.sentence.translation}
+                  </p>
                 </div>
-                <span>{current.sentence.masteryLevel}%</span>
+
+                {/* Submit button */}
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={!userAnswer.trim()}
+                    className={`rounded-xl px-8 py-3 text-lg font-semibold transition-all
+                      ${!userAnswer.trim()
+                        ? 'bg-zinc-200 text-zinc-400 cursor-not-allowed dark:bg-zinc-700 dark:text-zinc-500'
+                        : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95 dark:bg-blue-500 dark:hover:bg-blue-600'
+                      }`}
+                  >
+                    Check
+                  </button>
+                </div>
+
+                {/* Mastery indicator */}
+                <div className="mt-6 flex items-center justify-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+                  <span>Mastery:</span>
+                  <div className="flex h-2 w-24 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                    <div
+                      className="bg-blue-500 transition-all"
+                      style={{ width: `${current.sentence.masteryLevel}%` }}
+                    />
+                  </div>
+                  <span>{current.sentence.masteryLevel}%</span>
+                </div>
               </div>
-            </div>
+            );
+          })()}
           )}
 
           {/* Feedback state */}
