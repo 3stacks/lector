@@ -27,7 +27,8 @@ import { addClozeCard, isAnkiConnected } from '@/lib/anki';
 
 // Constants
 const DAILY_GOAL = 50;
-const ANKI_DECK_NAME = 'Afrikaans::Cloze';
+const ANKI_DECK_SETTING_KEY = 'afrikaans-reader-anki-deck';
+const DEFAULT_ANKI_DECK = 'Afrikaans::Cloze';
 
 // Helper function to create blanked sentence
 function createBlankedSentence(sentence: string, wordIndex: number): string {
@@ -141,6 +142,7 @@ export default function PracticePage() {
   } | null>(null);
   const [isAddingToAnki, setIsAddingToAnki] = useState(false);
   const [ankiAdded, setAnkiAdded] = useState(false);
+  const [ankiError, setAnkiError] = useState<string | null>(null);
   const [hintLetters, setHintLetters] = useState(0); // Number of hint letters shown
   const [showingAnswer, setShowingAnswer] = useState(false); // Showing answer before retry
   const [retryQueue, setRetryQueue] = useState<ClozeSentence[]>([]); // Sentences to retry
@@ -340,6 +342,7 @@ export default function PracticePage() {
     setUserAnswer('');
     setFeedbackData(null);
     setAnkiAdded(false);
+    setAnkiError(null);
     setHintLetters(0);
     setShowingAnswer(false);
     setState('practicing');
@@ -484,9 +487,13 @@ export default function PracticePage() {
     if (!current || !feedbackData || !feedbackData.isCorrect || isAddingToAnki || ankiAdded) return;
 
     setIsAddingToAnki(true);
+    setAnkiError(null);
     try {
+      // Get deck name from settings or use default
+      const deckName = localStorage.getItem(ANKI_DECK_SETTING_KEY) || DEFAULT_ANKI_DECK;
+
       await addClozeCard(
-        ANKI_DECK_NAME,
+        deckName,
         current.sentence.sentence,
         current.sentence.clozeWord,
         current.sentence.translation,
@@ -495,7 +502,8 @@ export default function PracticePage() {
       setAnkiAdded(true);
     } catch (error) {
       console.error('Failed to add to Anki:', error);
-      // Could add toast notification here
+      const message = error instanceof Error ? error.message : 'Failed to add to Anki';
+      setAnkiError(message);
     } finally {
       setIsAddingToAnki(false);
     }
@@ -785,6 +793,7 @@ export default function PracticePage() {
                 onAddToAnki={handleAddToAnki}
                 isAddingToAnki={isAddingToAnki}
                 ankiAdded={ankiAdded}
+                ankiError={ankiError}
               />
             </div>
           )}

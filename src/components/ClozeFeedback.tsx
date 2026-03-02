@@ -12,6 +12,7 @@ interface ClozeFeedbackProps {
   onAddToAnki: () => void;
   isAddingToAnki?: boolean;
   ankiAdded?: boolean;
+  ankiError?: string | null;
 }
 
 export default function ClozeFeedback({
@@ -26,6 +27,7 @@ export default function ClozeFeedback({
   onAddToAnki,
   isAddingToAnki = false,
   ankiAdded = false,
+  ankiError = null,
 }: ClozeFeedbackProps) {
   const masteryLabels: Record<number, string> = {
     0: 'New',
@@ -149,14 +151,17 @@ export default function ClozeFeedback({
           <button
             type="button"
             onClick={onAddToAnki}
-            disabled={isAddingToAnki || ankiAdded}
+            disabled={isAddingToAnki || ankiAdded || !!ankiError}
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
               ankiAdded
                 ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400'
+                : ankiError
+                ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400'
                 : isAddingToAnki
                 ? 'bg-zinc-100 text-zinc-400 cursor-wait dark:bg-zinc-800 dark:text-zinc-500'
                 : 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/50 dark:text-purple-300 dark:hover:bg-purple-900/70'
             }`}
+            title={ankiError || undefined}
           >
             {ankiAdded ? (
               <>
@@ -164,6 +169,13 @@ export default function ClozeFeedback({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
                 Added to Anki
+              </>
+            ) : ankiError ? (
+              <>
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Anki Error
               </>
             ) : isAddingToAnki ? (
               <>
@@ -182,6 +194,11 @@ export default function ClozeFeedback({
               </>
             )}
           </button>
+        )}
+        {ankiError && (
+          <div className="w-full text-xs text-red-600 dark:text-red-400">
+            {ankiError}
+          </div>
         )}
         <button
           type="button"
