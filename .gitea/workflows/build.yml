@@ -10,11 +10,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build image
-        run: docker build -t afrikaans-reader:latest .
-
-      - name: Tag and push to registry
+      - name: Test Docker
         run: |
-          # Use host.docker.internal to reach the registry from inside Docker
-          docker tag afrikaans-reader:latest host.docker.internal:5050/afrikaans-reader:latest
-          docker push host.docker.internal:5050/afrikaans-reader:latest
+          echo "Testing Docker..."
+          docker --version || echo "Docker not available"
+          docker ps || echo "Cannot list containers"
