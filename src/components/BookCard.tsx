@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import type { Book } from '@/lib/db';
+import type { Book } from '@/lib/data-layer';
 
 interface BookCardProps {
   book: Book;

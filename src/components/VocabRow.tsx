@@ -1,6 +1,6 @@
 "use client";
 
-import { type VocabEntry, type WordState } from "@/lib/db";
+import { type VocabEntry, type WordState } from "@/lib/data-layer";
 
 interface VocabRowProps {
   entry: VocabEntry;

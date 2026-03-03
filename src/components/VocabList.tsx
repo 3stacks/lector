@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import VocabRow from "./VocabRow";
-import { type VocabEntry, type WordState, type Book } from "@/lib/db";
+import { type VocabEntry, type WordState, type Book } from "@/lib/data-layer";
 
 // Sort field options
 type SortField = "text" | "createdAt" | "state" | "bookId";

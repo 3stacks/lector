@@ -3,14 +3,14 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  db,
   getVocabStats,
   getAllBooks,
   getStatsForDateRange,
+  getAllClozeSentences,
   type DailyStats,
   type WordState,
   type Book,
-} from '@/lib/db';
+} from '@/lib/data-layer';
 import ActivityHeatmap from '@/components/ActivityHeatmap';
 import VocabGrowthChart from '@/components/VocabGrowthChart';
 
@@ -272,7 +272,7 @@ export default function StatsPage() {
         const totalPoints = dailyStats.reduce((sum, d) => sum + d.points, 0);
 
         // Get cloze correct count from db
-        const clozeSentences = await db.clozeSentences.toArray();
+        const clozeSentences = await getAllClozeSentences();
         const totalClozeCorrect = clozeSentences.reduce((sum, c) => sum + c.timesCorrect, 0);
 
         // Calculate streaks

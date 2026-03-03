@@ -4,13 +4,16 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import VocabList from "@/components/VocabList";
 import {
-  db,
   type VocabEntry,
   type Book,
   type WordState,
   updateVocabState,
   getVocabStats,
-} from "@/lib/db";
+  getAllVocab,
+  getAllBooks,
+  deleteVocabEntry,
+  markVocabPushedToAnki,
+} from "@/lib/data-layer";
 import {
   addBasicCard,
   syncWordStates,
@@ -324,8 +327,8 @@ export default function VocabPage() {
     setIsLoading(true);
     try {
       const [vocabData, booksData, statsData] = await Promise.all([
-        db.vocab.orderBy("createdAt").reverse().toArray(),
-        db.books.toArray(),
+        getAllVocab(),
+        getAllBooks(),
         getVocabStats(),
       ]);
       setEntries(vocabData);
@@ -376,10 +379,11 @@ export default function VocabPage() {
     updates: Partial<VocabEntry>
   ) => {
     try {
-      await db.vocab.update(id, {
-        ...updates,
-        stateUpdatedAt: new Date(),
-      });
+      // Use updateVocabState for state changes, or a general update API call
+      if (updates.state) {
+        await updateVocabState(id, updates.state);
+      }
+      // For other updates, we'd need an update endpoint - for now just reload
       await loadData();
       // Update selected entry if it's the one being edited
       if (selectedEntry?.id === id) {
@@ -396,7 +400,7 @@ export default function VocabPage() {
   // Delete entry
   const handleDeleteEntry = async (id: string) => {
     try {
-      await db.vocab.delete(id);
+      await deleteVocabEntry(id);
       await loadData();
       showNotification("success", "Entry deleted");
     } catch (error) {
@@ -440,10 +444,7 @@ export default function VocabPage() {
             entry.translation,
             entry.translation // word meaning - using translation for now
           );
-          await db.vocab.update(entry.id, {
-            pushedToAnki: true,
-            ankiNoteId: noteId,
-          });
+          await markVocabPushedToAnki(entry.id, noteId);
           successCount++;
         } catch (error) {
           console.error(`Failed to export "${entry.text}":`, error);

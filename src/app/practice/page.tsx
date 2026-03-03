@@ -6,7 +6,6 @@ import NavHeader from '@/components/NavHeader';
 // ClozeInput component no longer used - inline input in sentence
 import ClozeFeedback from '@/components/ClozeFeedback';
 import {
-  db,
   ClozeSentence,
   ClozeMasteryLevel,
   ClozeCollection,
@@ -20,7 +19,8 @@ import {
   incrementDailyStat,
   bulkSaveClozeSentences,
   migrateClozeSentences,
-} from '@/lib/db';
+  getClozeSentenceByTatoebaId,
+} from '@/lib/data-layer';
 import { fetchAfrikaansSentences, fetchBulkSentences, TatoebaSentence, findBestClozeWord, getCollectionForRank, ProcessedSentence } from '@/lib/tatoeba';
 import { speak, isTTSAvailable } from '@/lib/tts';
 import { addClozeCard, isAnkiConnected } from '@/lib/anki';
@@ -226,10 +226,7 @@ export default function PracticePage() {
         const collection = getCollectionForRank(rank);
 
         // Check if this sentence already exists
-        const existing = await db.clozeSentences
-          .where('tatoebaSentenceId')
-          .equals(s.id)
-          .first();
+        const existing = await getClozeSentenceByTatoebaId(s.id);
 
         if (!existing) {
           const clozeSentence: ClozeSentence = {
@@ -289,10 +286,7 @@ export default function PracticePage() {
         if (!s.translation) continue;
 
         // Check if already exists
-        const existing = await db.clozeSentences
-          .where('tatoebaSentenceId')
-          .equals(s.id)
-          .first();
+        const existing = await getClozeSentenceByTatoebaId(s.id);
 
         if (!existing) {
           clozeSentences.push({

@@ -8,7 +8,7 @@ import {
   getKnownWordsMap,
   saveReadingPosition,
   getReadingPosition,
-} from '@/lib/db';
+} from '@/lib/data-layer';
 
 // Color mapping for word states - background highlights
 const stateColors: Record<WordState, string> = {

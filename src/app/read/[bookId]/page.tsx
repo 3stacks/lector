@@ -12,7 +12,7 @@ import {
   getVocabByText,
   updateVocabState,
   incrementDailyStat,
-} from '@/lib/db';
+} from '@/lib/data-layer';
 import { translateWord, translatePhrase } from '@/lib/claude';
 import { lookupWord } from '@/lib/dictionary';
 import { speak } from '@/lib/tts';

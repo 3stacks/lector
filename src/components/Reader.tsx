@@ -10,7 +10,7 @@ import {
   getKnownWordsMap,
   saveReadingPosition,
   getReadingPosition,
-} from '@/lib/db';
+} from '@/lib/data-layer';
 
 type ReadingMode = 'page' | 'sentence';
 

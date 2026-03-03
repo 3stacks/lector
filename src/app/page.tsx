@@ -13,7 +13,7 @@ import {
   type Book,
   type BookProgress,
   type BookFileType,
-} from '@/lib/db';
+} from '@/lib/data-layer';
 
 export default function Home() {
   const [books, setBooks] = useState<Book[]>([]);

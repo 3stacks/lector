@@ -5,16 +5,21 @@ import Link from "next/link";
 import { getDeckNames, isAnkiConnected } from "@/lib/anki";
 import { getTTSMode, setTTSMode, isGoogleTTSConfigured, speak, type TTSMode } from "@/lib/tts";
 import {
-  db,
   exportAllData,
   clearAllData,
   bulkUpdateWordStates,
   getSetting,
   setSetting,
+  importFromDexie,
+  getAllVocab,
+  getAllKnownWords,
+  getVocabByText,
+  saveVocab,
+  updateVocabState,
   type VocabEntry,
   type KnownWord,
   type WordState,
-} from "@/lib/db";
+} from "@/lib/data-layer";
 
 // Settings keys for localStorage
 const SETTINGS_KEYS = {
@@ -306,7 +311,7 @@ export default function SettingsPage() {
   ) => {
     for (const item of imports) {
       // Check if word already exists
-      const existing = await db.vocab.where('text').equals(item.word).first();
+      const existing = await getVocabByText(item.word);
 
       if (existing) {
         // Update state if the LingQ state is "more known"
@@ -314,14 +319,11 @@ export default function SettingsPage() {
           'new': 0, 'level1': 1, 'level2': 2, 'level3': 3, 'level4': 4, 'known': 5, 'ignored': -1
         };
         if (stateRank[item.state] > stateRank[existing.state]) {
-          await db.vocab.update(existing.id, {
-            state: item.state,
-            stateUpdatedAt: new Date(),
-          });
+          await updateVocabState(existing.id, item.state);
         }
       } else {
         // Create new entry
-        await db.vocab.add({
+        await saveVocab({
           id: crypto.randomUUID(),
           text: item.word,
           type: 'word',
@@ -370,7 +372,7 @@ export default function SettingsPage() {
   // Export vocab as CSV
   const exportVocabCSV = async () => {
     try {
-      const vocab = await db.vocab.toArray();
+      const vocab = await getAllVocab();
       const csv = [
         "text,type,sentence,translation,state,createdAt",
         ...vocab.map(
@@ -389,7 +391,7 @@ export default function SettingsPage() {
   // Export vocab as JSON
   const exportVocabJSON = async () => {
     try {
-      const vocab = await db.vocab.toArray();
+      const vocab = await getAllVocab();
       const json = JSON.stringify(vocab, null, 2);
       downloadFile(json, "afrikaans-vocab.json", "application/json");
       setExportStatus("Vocab exported as JSON.");
@@ -401,7 +403,7 @@ export default function SettingsPage() {
   // Export all known words
   const exportKnownWords = async () => {
     try {
-      const knownWords = await db.knownWords.toArray();
+      const knownWords = await getAllKnownWords();
       const words = knownWords
         .filter((w) => w.state === "known")
         .map((w) => w.word);
@@ -451,59 +453,15 @@ export default function SettingsPage() {
         throw new Error("Invalid backup file format");
       }
 
-      // Import books (convert base64 back to ArrayBuffer)
-      if (data.books && Array.isArray(data.books)) {
-        for (const book of data.books) {
-          // Handle both old (epubData) and new (fileData) formats
-          const fileData = base64ToArrayBuffer(book.fileData || book.epubData);
-          await db.books.put({
-            ...book,
-            fileData,
-            fileType: book.fileType || 'epub',
-            createdAt: new Date(book.createdAt),
-            lastReadAt: new Date(book.lastReadAt),
-          });
-        }
-      }
+      // Use the server-side import API
+      const result = await importFromDexie(data);
 
-      // Import vocab
-      if (data.vocab && Array.isArray(data.vocab)) {
-        for (const v of data.vocab as VocabEntry[]) {
-          await db.vocab.put({
-            ...v,
-            stateUpdatedAt: new Date(v.stateUpdatedAt),
-            createdAt: new Date(v.createdAt),
-          });
-        }
+      if (result.success) {
+        const counts = result.imported;
+        setExportStatus(`Backup imported: ${counts.books || 0} books, ${counts.vocab || 0} vocab, ${counts.knownWords || 0} known words, ${counts.clozeSentences || 0} cloze sentences.`);
+      } else {
+        throw new Error("Import failed");
       }
-
-      // Import known words
-      if (data.knownWords && Array.isArray(data.knownWords)) {
-        await db.knownWords.bulkPut(data.knownWords as KnownWord[]);
-      }
-
-      // Import cloze sentences
-      if (data.clozeSentences && Array.isArray(data.clozeSentences)) {
-        for (const s of data.clozeSentences) {
-          await db.clozeSentences.put({
-            ...s,
-            nextReview: new Date(s.nextReview),
-            lastReviewed: s.lastReviewed ? new Date(s.lastReviewed) : undefined,
-          });
-        }
-      }
-
-      // Import daily stats
-      if (data.dailyStats && Array.isArray(data.dailyStats)) {
-        await db.dailyStats.bulkPut(data.dailyStats);
-      }
-
-      // Import settings
-      if (data.settings && Array.isArray(data.settings)) {
-        await db.settings.bulkPut(data.settings);
-      }
-
-      setExportStatus("Backup imported successfully!");
     } catch (error) {
       setExportStatus(`Import failed: ${error instanceof Error ? error.message : "Unknown error"}`);
     }

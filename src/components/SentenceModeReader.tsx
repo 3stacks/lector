@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import type { WordState } from '@/lib/db';
+import type { WordState } from '@/lib/data-layer';
 
 interface SentenceModeReaderProps {
   sentences: string[];
