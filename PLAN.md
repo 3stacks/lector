@@ -216,6 +216,25 @@ Respond with:
 1. Known words tracking
 2. Whisper integration for podcasts
 3. Web article import
+4. Daily study tracking webhook
+
+### Daily Study Tracking
+A lightweight way for external tools (Sphere Guardian, etc.) to know whether study happened today.
+
+**Option A — API route (simple):**
+- `POST /api/study-ping` — called automatically when a session starts (first word lookup or page turn)
+- `GET /api/study-ping` — returns `{ done: true, date: "2026-03-14", minutes: 12 }` or `{ done: false }`
+- Persists to a local JSON file (`data/study-log.json`) keyed by date
+
+**Option B — passive detection (no action needed):**
+- Track session activity in IndexedDB already
+- Expose a Next.js API route that reads it: `GET /api/today` → `{ studiedToday: boolean, wordsLooked up: N }`
+
+**Integration with Sphere Guardian:**
+- Sphere MCP `get_week_summary` could call this endpoint to report Afrikaans status accurately
+- Or: a cron/hook that pings Sphere when a session closes
+
+Recommended: Option A (explicit ping) — simplest, works even offline, easy to call from MCP.
 
 ---
 

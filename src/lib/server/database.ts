@@ -93,7 +93,8 @@ function getDb(): DatabaseType {
       minutesRead INTEGER DEFAULT 0,
       clozePracticed INTEGER DEFAULT 0,
       points INTEGER DEFAULT 0,
-      dictionaryLookups INTEGER DEFAULT 0
+      dictionaryLookups INTEGER DEFAULT 0,
+      sessionStartedAt TEXT
     );
 
     CREATE TABLE IF NOT EXISTS settings (
@@ -101,6 +102,12 @@ function getDb(): DatabaseType {
       value TEXT NOT NULL
     );
   `);
+
+  // Migrations for existing databases
+  const cols = _db.prepare("PRAGMA table_info(dailyStats)").all() as { name: string }[];
+  if (!cols.some(c => c.name === 'sessionStartedAt')) {
+    _db.exec('ALTER TABLE dailyStats ADD COLUMN sessionStartedAt TEXT');
+  }
 
   return _db;
 }
@@ -189,6 +196,7 @@ export interface DailyStatsRow {
   clozePracticed: number;
   points: number;
   dictionaryLookups: number;
+  sessionStartedAt: string | null;
 }
 
 export interface SettingRow {

@@ -1,7 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { db } from '@/lib/server/database';
 
 const client = new Anthropic();
+
+function recordStudyPing() {
+  const today = new Date().toISOString().split('T')[0];
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT OR IGNORE INTO dailyStats
+      (date, wordsRead, newWordsSaved, wordsMarkedKnown, minutesRead, clozePracticed, points, dictionaryLookups)
+    VALUES (?, 0, 0, 0, 0, 0, 0, 0)
+  `).run(today);
+  db.prepare(`
+    UPDATE dailyStats SET sessionStartedAt = COALESCE(sessionStartedAt, ?) WHERE date = ?
+  `).run(now, today);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,6 +24,8 @@ export async function POST(request: NextRequest) {
     if (!word) {
       return NextResponse.json({ error: 'Word is required' }, { status: 400 });
     }
+
+    recordStudyPing();
 
     if (type === 'phrase') {
       // Phrase translation
