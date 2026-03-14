@@ -1,20 +1,4 @@
-// AnkiConnect API client
-import { getSetting } from './db';
-
-const DEFAULT_ANKI_URL = "http://localhost:8765";
-const ANKI_CONNECT_VERSION = 6;
-
-async function getAnkiUrl(): Promise<string> {
-  const url = await getSetting<string>('ankiConnectUrl');
-  return url || DEFAULT_ANKI_URL;
-}
-
-// Types
-interface AnkiConnectRequest {
-  action: string;
-  version: number;
-  params?: Record<string, unknown>;
-}
+// AnkiConnect API client — proxied through /api/anki (server-side)
 
 interface AnkiConnectResponse<T = unknown> {
   result: T;
@@ -30,58 +14,39 @@ interface CardInfo {
 }
 
 /**
- * Make a request to AnkiConnect
+ * Make a request via the server-side AnkiConnect proxy
  */
 async function ankiRequest<T>(
   action: string,
   params?: Record<string, unknown>
 ): Promise<T> {
-  const request: AnkiConnectRequest = {
-    action,
-    version: ANKI_CONNECT_VERSION,
-    params,
-  };
+  const response = await fetch('/api/anki', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, params }),
+  });
 
-  const ankiUrl = await getAnkiUrl();
-
-  try {
-    const response = await fetch(ankiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-    });
-
-    if (!response.ok) {
-      throw new Error(`AnkiConnect HTTP error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as AnkiConnectResponse<T>;
-
-    if (data.error) {
-      throw new Error(`AnkiConnect error: ${data.error}`);
-    }
-
-    return data.result;
-  } catch (error) {
-    if (error instanceof TypeError && error.message.includes("fetch")) {
-      throw new Error(
-        "Could not connect to Anki. Make sure Anki is running with AnkiConnect installed."
-      );
-    }
-    throw error;
+  if (!response.ok) {
+    throw new Error(`AnkiConnect proxy error: ${response.status}`);
   }
+
+  const data = (await response.json()) as AnkiConnectResponse<T>;
+
+  if (data.error) {
+    throw new Error(`AnkiConnect error: ${data.error}`);
+  }
+
+  return data.result;
 }
 
 /**
  * Check if Anki is running and AnkiConnect is available
- * @returns true if connected, false otherwise
  */
 export async function isAnkiConnected(): Promise<boolean> {
   try {
-    const version = await ankiRequest<number>("version");
-    return version >= ANKI_CONNECT_VERSION;
+    const res = await fetch('/api/anki');
+    const data = await res.json();
+    return data.connected === true;
   } catch {
     return false;
   }
@@ -89,10 +54,11 @@ export async function isAnkiConnected(): Promise<boolean> {
 
 /**
  * Get all deck names from Anki
- * @returns Array of deck names
  */
 export async function getDeckNames(): Promise<string[]> {
-  return ankiRequest<string[]>("deckNames");
+  const res = await fetch('/api/anki');
+  const data = await res.json();
+  return data.decks ?? [];
 }
 
 /**
