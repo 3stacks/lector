@@ -23,6 +23,8 @@ export default function RootLayout({
         className={`${inter.variable} font-sans antialiased bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen`}
       >
         {children}
+        {/* Spacer for mobile bottom nav — invisible on sm+ */}
+        <div className="h-16 sm:hidden" aria-hidden="true" />
       </body>
     </html>
   );

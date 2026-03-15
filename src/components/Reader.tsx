@@ -62,17 +62,26 @@ export default function Reader({ book, onWordClick, onClose, refreshTrigger = 0 
   const [sentenceIndex, setSentenceIndex] = useState(0);
   const [knownWordsMap, setKnownWordsMap] = useState<Map<string, WordState>>(new Map());
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [selectedWordIndex, setSelectedWordIndex] = useState(-1);
   const selectedWordRef = useRef<HTMLElement | null>(null);
 
-  // Detect dark mode
+  // Detect dark mode and mobile viewport
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     setIsDarkMode(mediaQuery.matches);
 
     const handler = (e: MediaQueryListEvent) => setIsDarkMode(e.matches);
     mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
+
+    setIsMobile(window.innerWidth < 640);
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handler);
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   // Load known words map (refreshes when refreshTrigger changes)
@@ -176,7 +185,7 @@ export default function Reader({ book, onWordClick, onClose, refreshTrigger = 0 
           const span = doc.createElement('span');
           span.textContent = word;
           span.className = 'afr-word';
-          span.style.cssText = 'cursor: pointer; border-radius: 2px; padding: 0 1px;';
+          span.style.cssText = 'cursor: pointer; border-radius: 2px; padding: 0 1px; touch-action: manipulation; -webkit-tap-highlight-color: transparent;';
 
           // Apply word state styling
           const state = getWordState(word);
@@ -189,21 +198,29 @@ export default function Reader({ book, onWordClick, onClose, refreshTrigger = 0 
             span.style.cssText += colors.new;
           }
 
-          // Add click handler
-          span.addEventListener('click', (e) => {
+          // Shared handler for click / touch
+          let lastTouchEnd = 0;
+          const handleWordActivate = (e: Event) => {
             e.preventDefault();
             e.stopPropagation();
-
-            // Find the surrounding sentence
             const sentence = findSurroundingSentence(span, doc);
-
-            // Blur iframe to allow parent to receive keyboard events
             (document.activeElement as HTMLElement)?.blur?.();
-
             onWordClick(word, sentence);
+          };
+
+          // touchend fires immediately on mobile; suppress the synthetic click that follows
+          span.addEventListener('touchend', (e) => {
+            lastTouchEnd = Date.now();
+            handleWordActivate(e);
+          }, { passive: false });
+
+          span.addEventListener('click', (e) => {
+            // Suppress synthetic click generated after touchend
+            if (Date.now() - lastTouchEnd < 500) return;
+            handleWordActivate(e);
           });
 
-          // Add hover effect
+          // Hover effect (desktop only)
           span.addEventListener('mouseenter', () => {
             span.style.outline = '2px solid #60a5fa';
           });
@@ -223,15 +240,13 @@ export default function Reader({ book, onWordClick, onClose, refreshTrigger = 0 
         parent.replaceChild(fragment, textNode);
       }
 
-      // Add mouseup listener for phrase selection
-      doc.addEventListener('mouseup', () => {
+      // Shared handler for phrase selection (mouseup + touchend)
+      const handlePhraseSelection = () => {
         const selection = doc.getSelection();
         if (!selection || selection.isCollapsed) return;
 
         const selectedText = selection.toString().trim();
-        // Only treat as phrase if it has spaces (multiple words)
         if (selectedText && selectedText.includes(' ')) {
-          // Find the surrounding sentence for context
           const range = selection.getRangeAt(0);
           const container = range.commonAncestorContainer;
           const element = container.nodeType === Node.TEXT_NODE
@@ -240,17 +255,15 @@ export default function Reader({ book, onWordClick, onClose, refreshTrigger = 0 
 
           if (element) {
             const sentence = findSurroundingSentence(element, doc);
-
-            // Clear selection
             selection.removeAllRanges();
-
-            // Blur iframe to allow parent to receive keyboard events
             (document.activeElement as HTMLElement)?.blur?.();
-
             onWordClick(selectedText, sentence);
           }
         }
-      });
+      };
+
+      doc.addEventListener('mouseup', handlePhraseSelection);
+      doc.addEventListener('touchend', handlePhraseSelection);
     },
     [getWordState, isDarkMode, onWordClick, findSurroundingSentence]
   );
@@ -314,12 +327,12 @@ export default function Reader({ book, onWordClick, onClose, refreshTrigger = 0 
         rendition.themes.default({
           body: `
             font-family: Charter, 'Bitstream Charter', 'Sitka Text', Cambria, Georgia, serif !important;
-            font-size: 24px !important;
-            line-height: 2 !important;
-            padding: 48px 32px !important;
+            font-size: ${isMobile ? '20px' : '24px'} !important;
+            line-height: ${isMobile ? '1.9' : '2'} !important;
+            padding: ${isMobile ? '24px 20px' : '48px 32px'} !important;
             max-width: 32em !important;
             margin: 0 auto !important;
-            color: ${isDarkMode ? '#d4d4d8' : '#3f3f46'} !important;
+            color: ${isDarkMode ? '#e4e4e7' : '#3f3f46'} !important;
             background-color: ${isDarkMode ? '#18181b' : '#fefefe'} !important;
             text-rendering: optimizeLegibility !important;
             -webkit-font-smoothing: antialiased !important;
@@ -397,7 +410,7 @@ export default function Reader({ book, onWordClick, onClose, refreshTrigger = 0 
         epubRef.current.destroy();
       }
     };
-  }, [book.id, book.fileData, book.fileType, isDarkMode, wrapWordsInSpans, extractSentences, readingMode]);
+  }, [book.id, book.fileData, book.fileType, isDarkMode, isMobile, wrapWordsInSpans, extractSentences, readingMode]);
 
   // Navigation handlers
   const handlePrev = useCallback(() => {
