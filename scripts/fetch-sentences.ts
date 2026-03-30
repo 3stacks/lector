@@ -51,7 +51,7 @@ type ClozeCollection = 'top500' | 'top1000' | 'top2000' | 'random';
 function findBestClozeWord(sentence: string): { word: string; index: number; rank: number | undefined } {
   const words = sentence.split(/\s+/);
   let bestWord = { word: words[0], index: 0, rank: undefined as number | undefined };
-  let bestRank = Infinity;
+  let bestRank = 0;
 
   for (let i = 0; i < words.length; i++) {
     const cleanWord = words[i].replace(/[.,!?;:'"()[\]{}]/g, '').toLowerCase();
@@ -59,11 +59,13 @@ function findBestClozeWord(sentence: string): { word: string; index: number; ran
 
     const entry = lookupWord(cleanWord);
     if (entry) {
-      if (entry.rank < bestRank) {
+      // Pick the RAREST dictionary word (highest rank = least common)
+      if (entry.rank > bestRank) {
         bestRank = entry.rank;
         bestWord = { word: words[i], index: i, rank: entry.rank };
       }
-    } else if (bestRank === Infinity) {
+    } else if (bestRank === 0) {
+      // Word not in dictionary — only use if we haven't found any dictionary word
       if (cleanWord.length > bestWord.word.length) {
         bestWord = { word: words[i], index: i, rank: undefined };
       }

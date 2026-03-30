@@ -64,7 +64,7 @@ export function findBestClozeWord(sentence: string): { word: string; index: numb
   const words = sentence.split(/\s+/);
 
   let bestWord = { word: words[0], index: 0, rank: undefined as number | undefined };
-  let bestRank = Infinity;
+  let bestRank = 0;
 
   for (let i = 0; i < words.length; i++) {
     // Clean the word (remove punctuation)
@@ -77,14 +77,13 @@ export function findBestClozeWord(sentence: string): { word: string; index: numb
     const entry = lookupWord(cleanWord);
 
     if (entry) {
-      // Found in dictionary - use rank to find rarest
-      if (entry.rank < bestRank) {
+      // Pick the rarest dictionary word (highest rank = least common)
+      if (entry.rank > bestRank) {
         bestRank = entry.rank;
         bestWord = { word: words[i], index: i, rank: entry.rank };
       }
-    } else if (bestRank === Infinity) {
-      // Not in dictionary - only use if we haven't found anything in dictionary
-      // Prefer longer words
+    } else if (bestRank === 0) {
+      // Not in dictionary - only use if we haven't found any dictionary word
       if (cleanWord.length > bestWord.word.length) {
         bestWord = { word: words[i], index: i, rank: undefined };
       }

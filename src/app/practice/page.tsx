@@ -145,13 +145,15 @@ interface CurrentSentence {
   blankedSentence: string;
 }
 
-const COLLECTION_LABELS: Record<ClozeCollection, string> = {
-  top500: 'Top 500 Words',
-  top1000: 'Words 500-1000',
-  top2000: 'Words 1000-2000',
-  mined: 'From Reading',
-  random: 'Random',
+const COLLECTION_LABELS: Record<string, string> = {
+  top500: 'Top 500',
+  top1000: '500-1000',
+  top2000: '1000-2000',
 };
+
+const VISIBLE_COLLECTIONS: ClozeCollection[] = ['top500', 'top1000', 'top2000'];
+
+type RoundType = 'new' | 'review';
 
 export default function PracticePage() {
   // State
@@ -169,6 +171,7 @@ export default function PracticePage() {
 
   // Practice mode
   const [practiceMode, setPracticeMode] = useState<PracticeMode>('type');
+  const [roundType, setRoundType] = useState<RoundType>('new');
 
   // Multiple choice state
   const [mcOptions, setMcOptions] = useState<string[]>([]);
@@ -251,41 +254,6 @@ export default function PracticePage() {
     setMcLocked(false);
   }, []);
 
-  // Start a round
-  const startRound = useCallback(async () => {
-    setState('loading');
-    setRoundProgress(0);
-    setRoundCorrect(0);
-    setRetryQueue([]);
-    setRecentWords([]);
-
-    try {
-      const dueSentences = await getClozeSentencesByCollection(selectedCollection, roundSize, []);
-
-      let sentences = dueSentences;
-      if (sentences.length < roundSize) {
-        const newSentences = await getNewSentencesByCollection(selectedCollection, roundSize - sentences.length, []);
-        sentences = [...sentences, ...newSentences];
-      }
-
-      // Shuffle to avoid clusters
-      for (let i = sentences.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [sentences[i], sentences[j]] = [sentences[j], sentences[i]];
-      }
-
-      if (sentences.length > 0) {
-        setQueue(sentences);
-        loadNextSentence(sentences);
-      } else {
-        setState('complete');
-      }
-    } catch (error) {
-      console.error('Failed to start round:', error);
-      setState('complete');
-    }
-  }, [selectedCollection, roundSize]);
-
   // Load next sentence from queue
   const loadNextSentence = useCallback((sentenceQueue: ClozeSentence[]) => {
     if (sentenceQueue.length === 0) {
@@ -315,6 +283,53 @@ export default function PracticePage() {
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [practiceMode, generateMcOptionsForSentence]);
+
+  // Start a round with explicit params (used by review buttons)
+  const startRoundWith = useCallback(async (collection: ClozeCollection, type: RoundType, size: number) => {
+    setState('loading');
+    setSelectedCollection(collection);
+    setRoundType(type);
+    setRoundSize(size as RoundSize);
+    setRoundProgress(0);
+    setRoundCorrect(0);
+    setRetryQueue([]);
+    setRecentWords([]);
+
+    try {
+      let sentences: ClozeSentence[];
+
+      if (type === 'review') {
+        sentences = await getClozeSentencesByCollection(collection, size, []);
+      } else {
+        sentences = await getNewSentencesByCollection(collection, size, []);
+        if (sentences.length < size) {
+          const dueSentences = await getClozeSentencesByCollection(collection, size - sentences.length, []);
+          sentences = [...sentences, ...dueSentences];
+        }
+      }
+
+      // Shuffle
+      for (let i = sentences.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [sentences[i], sentences[j]] = [sentences[j], sentences[i]];
+      }
+
+      if (sentences.length > 0) {
+        setQueue(sentences);
+        loadNextSentence(sentences);
+      } else {
+        setState('complete');
+      }
+    } catch (error) {
+      console.error('Failed to start round:', error);
+      setState('complete');
+    }
+  }, [loadNextSentence]);
+
+  // Start a round using current state values
+  const startRound = useCallback(() => {
+    startRoundWith(selectedCollection, roundType, roundSize);
+  }, [selectedCollection, roundType, roundSize, startRoundWith]);
 
   // Handle hint - reveal next letter
   const handleHint = useCallback(() => {
@@ -617,92 +632,130 @@ export default function PracticePage() {
       <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Setup screen */}
         {state === 'setup' && (
-          <div className="py-8">
-            <h1 className="mb-8 text-2xl font-bold text-zinc-900 dark:text-zinc-50 text-center">Cloze Practice</h1>
+          <div className="py-6">
+            <h1 className="mb-6 text-2xl font-bold text-zinc-900 dark:text-zinc-50 text-center">Cloze Practice</h1>
 
-            {/* Collection selector */}
-            <div className="mb-8">
-              <label className="mb-3 block text-sm font-medium text-zinc-600 dark:text-zinc-400">Collection</label>
-              <div className="flex flex-wrap gap-2">
-                {(['top500', 'top1000', 'top2000', 'mined', 'random'] as ClozeCollection[]).map((coll) => {
-                  const count = collectionCounts?.[coll];
-                  return (
+            {/* Review Due section */}
+            {(() => {
+              const totalDue = VISIBLE_COLLECTIONS.reduce((sum, c) => sum + (collectionCounts?.[c]?.due || 0), 0);
+              if (totalDue === 0) return null;
+              return (
+                <div className="mb-8 rounded-2xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/20 p-5">
+                  <h2 className="text-base font-semibold text-amber-800 dark:text-amber-300 mb-3">
+                    Review Due ({totalDue})
+                  </h2>
+                  <div className="space-y-2">
+                    {VISIBLE_COLLECTIONS.map((coll) => {
+                      const due = collectionCounts?.[coll]?.due || 0;
+                      if (due === 0) return null;
+                      return (
+                        <button
+                          key={coll}
+                          onClick={() => {
+                            setSelectedCollection(coll);
+                            setRoundType('review');
+                            setRoundSize(Math.min(due, 20) as RoundSize);
+                            startRoundWith(coll, 'review', Math.min(due, 20));
+                          }}
+                          className="w-full flex items-center justify-between rounded-xl px-4 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-amber-400 dark:hover:border-amber-600 transition-all active:scale-[0.98]"
+                        >
+                          <span className="font-medium text-zinc-900 dark:text-zinc-100">{COLLECTION_LABELS[coll]}</span>
+                          <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">{due} due</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Learn New section */}
+            <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-4">Learn New</h2>
+
+              {/* Collection */}
+              <div className="mb-4">
+                <div className="flex gap-2">
+                  {VISIBLE_COLLECTIONS.map((coll) => {
+                    const count = collectionCounts?.[coll];
+                    return (
+                      <button
+                        key={coll}
+                        onClick={() => setSelectedCollection(coll)}
+                        className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all ${
+                          selectedCollection === coll
+                            ? 'bg-blue-500 text-white shadow-md'
+                            : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
+                        }`}
+                      >
+                        <div>{COLLECTION_LABELS[coll]}</div>
+                        {count && count.total > 0 && (
+                          <div className="text-[11px] font-normal opacity-75 mt-0.5">
+                            {count.mastered}/{count.total} mastered
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Round size + Mode in a row */}
+              <div className="flex gap-4 mb-4">
+                <div className="flex-1">
+                  <label className="mb-2 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Sentences</label>
+                  <div className="flex gap-1.5">
+                    {ROUND_SIZES.map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => setRoundSize(size)}
+                        className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${
+                          roundSize === size
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="w-40">
+                  <label className="mb-2 block text-xs font-medium text-zinc-500 dark:text-zinc-400">Mode</label>
+                  <div className="flex gap-1.5">
                     <button
-                      key={coll}
-                      onClick={() => setSelectedCollection(coll)}
-                      className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                        selectedCollection === coll
+                      onClick={() => handleSetPracticeMode('type')}
+                      className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${
+                        practiceMode === 'type'
                           ? 'bg-blue-500 text-white'
-                          : 'bg-zinc-200 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
+                          : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
                       }`}
                     >
-                      {COLLECTION_LABELS[coll]}
-                      {count && count.total > 0 && (
-                        <span className="ml-1.5 text-xs opacity-75">
-                          ({count.total})
-                        </span>
-                      )}
+                      Type
                     </button>
-                  );
-                })}
+                    <button
+                      onClick={() => handleSetPracticeMode('mc')}
+                      className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${
+                        practiceMode === 'mc'
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+                      }`}
+                    >
+                      MC
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* Round size selector */}
-            <div className="mb-8">
-              <label className="mb-3 block text-sm font-medium text-zinc-600 dark:text-zinc-400">Sentences per round</label>
-              <div className="flex gap-2">
-                {ROUND_SIZES.map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setRoundSize(size)}
-                    className={`flex-1 rounded-xl py-3 text-lg font-semibold transition-all ${
-                      roundSize === size
-                        ? 'bg-blue-500 text-white shadow-md scale-105'
-                        : 'bg-zinc-200 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
+              {/* Start button */}
+              <button
+                onClick={() => { setRoundType('new'); startRound(); }}
+                disabled={!seeded}
+                className="w-full rounded-xl bg-blue-600 py-3.5 text-lg font-bold text-white transition-all hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
+              >
+                {seeded ? 'Start' : 'Loading...'}
+              </button>
             </div>
-
-            {/* Mode toggle */}
-            <div className="mb-8">
-              <label className="mb-3 block text-sm font-medium text-zinc-600 dark:text-zinc-400">Mode</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleSetPracticeMode('type')}
-                  className={`flex-1 rounded-xl py-3 text-base font-semibold transition-all ${
-                    practiceMode === 'type'
-                      ? 'bg-blue-500 text-white shadow-md scale-105'
-                      : 'bg-zinc-200 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
-                  }`}
-                >
-                  Type
-                </button>
-                <button
-                  onClick={() => handleSetPracticeMode('mc')}
-                  className={`flex-1 rounded-xl py-3 text-base font-semibold transition-all ${
-                    practiceMode === 'mc'
-                      ? 'bg-blue-500 text-white shadow-md scale-105'
-                      : 'bg-zinc-200 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
-                  }`}
-                >
-                  Multiple Choice
-                </button>
-              </div>
-            </div>
-
-            {/* Start button */}
-            <button
-              onClick={startRound}
-              disabled={!seeded}
-              className="w-full rounded-xl bg-blue-600 py-4 text-xl font-bold text-white transition-all hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
-            >
-              {seeded ? 'Start Round' : 'Loading...'}
-            </button>
           </div>
         )}
 
@@ -711,7 +764,7 @@ export default function PracticePage() {
           <div className="mb-6">
             <div className="mb-2 flex items-center justify-between">
               <button
-                onClick={() => setState('setup')}
+                onClick={async () => { setState('setup'); const counts = await getCollectionCounts(); setCollectionCounts(counts); }}
                 className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
               >
                 &larr; Back
@@ -1030,7 +1083,7 @@ export default function PracticePage() {
               <div className="flex justify-center gap-3">
                 <button
                   type="button"
-                  onClick={() => setState('setup')}
+                  onClick={async () => { setState('setup'); const counts = await getCollectionCounts(); setCollectionCounts(counts); }}
                   className="rounded-xl px-6 py-3 font-semibold text-zinc-700 bg-zinc-200 hover:bg-zinc-300 transition-all active:scale-95 dark:text-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700"
                 >
                   Change Settings

@@ -370,12 +370,9 @@ export async function bulkSaveClozeSentences(sentences: ClozeSentence[]): Promis
   });
 }
 
-// Seed the cloze database from the static sentence bank (no-op if already seeded)
+// Seed the cloze database from the static sentence bank
+// Also updates existing unreviewed sentences if cloze words changed
 export async function seedSentenceBank(): Promise<{ seeded: number; total: number }> {
-  const check = await fetch('/api/cloze/seed');
-  const { needsSeed } = await check.json();
-  if (!needsSeed) return { seeded: 0, total: 0 };
-
   const res = await fetch('/api/cloze/seed', { method: 'POST' });
   return res.json();
 }
@@ -396,6 +393,7 @@ export async function getClozeSentencesByCollection(
   const params = new URLSearchParams({
     collection,
     limit: limit.toString(),
+    mode: 'review',
   });
   if (excludeWords.length > 0) {
     params.set('excludeWords', excludeWords.join(','));
@@ -415,9 +413,22 @@ export async function getNewSentencesByCollection(
   limit: number = 20,
   excludeWords: string[] = []
 ): Promise<ClozeSentence[]> {
-  // For new sentences, we'd need a different endpoint or filter
-  // For now, use the regular endpoint with collection filter
-  return getClozeSentencesByCollection(collection, limit, excludeWords);
+  const params = new URLSearchParams({
+    collection,
+    limit: limit.toString(),
+    mode: 'new',
+  });
+  if (excludeWords.length > 0) {
+    params.set('excludeWords', excludeWords.join(','));
+  }
+
+  const res = await fetch(`/api/cloze/due?${params}`);
+  const sentences = await res.json();
+  return sentences.map((s: Record<string, unknown>) => ({
+    ...s,
+    nextReview: new Date(s.nextReview as string),
+    lastReviewed: s.lastReviewed ? new Date(s.lastReviewed as string) : undefined,
+  }));
 }
 
 export async function getCollectionCounts(): Promise<Record<ClozeCollection, { total: number; due: number; mastered: number }>> {

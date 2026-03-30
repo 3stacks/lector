@@ -3,58 +3,65 @@ import { db } from '@/lib/server/database';
 import { randomUUID } from 'crypto';
 import sentenceBank from '@/lib/sentence-bank.json';
 
+type BankEntry = {
+  id: number;
+  text: string;
+  translation: string;
+  clozeWord: string;
+  clozeIndex: number;
+  wordRank: number | null;
+  collection: string;
+};
+
 // POST /api/cloze/seed - Seed database from sentence-bank.json
-// Only inserts sentences that don't already exist (by tatoebaSentenceId)
+// Inserts new sentences and updates clozeWord/collection for existing ones
 export async function POST() {
+  const bank = sentenceBank as BankEntry[];
+
   const existing = db.prepare(
-    'SELECT tatoebaSentenceId FROM clozeSentences WHERE tatoebaSentenceId IS NOT NULL'
-  ).all() as { tatoebaSentenceId: number }[];
+    'SELECT id, tatoebaSentenceId, clozeWord, collection, reviewCount FROM clozeSentences WHERE tatoebaSentenceId IS NOT NULL'
+  ).all() as { id: string; tatoebaSentenceId: number; clozeWord: string; collection: string; reviewCount: number }[];
 
-  const existingIds = new Set(existing.map(r => r.tatoebaSentenceId));
+  const existingMap = new Map(existing.map(r => [r.tatoebaSentenceId, r]));
 
-  const toInsert = (sentenceBank as Array<{
-    id: number;
-    text: string;
-    translation: string;
-    clozeWord: string;
-    clozeIndex: number;
-    wordRank: number | null;
-    collection: string;
-  }>).filter(s => !existingIds.has(s.id));
+  const toInsert: BankEntry[] = [];
+  const toUpdate: { id: string; clozeWord: string; clozeIndex: number; wordRank: number | null; collection: string }[] = [];
 
-  if (toInsert.length === 0) {
-    return NextResponse.json({ seeded: 0, total: sentenceBank.length, message: 'Already seeded' });
+  for (const s of bank) {
+    const ex = existingMap.get(s.id);
+    if (!ex) {
+      toInsert.push(s);
+    } else if (ex.reviewCount === 0 && (ex.clozeWord !== s.clozeWord || ex.collection !== s.collection)) {
+      // Only update unreviewed sentences (don't mess with user progress)
+      toUpdate.push({ id: ex.id, clozeWord: s.clozeWord, clozeIndex: s.clozeIndex, wordRank: s.wordRank, collection: s.collection });
+    }
   }
 
-  const stmt = db.prepare(`
+  const insertStmt = db.prepare(`
     INSERT OR IGNORE INTO clozeSentences (id, sentence, clozeWord, clozeIndex, translation, source, collection, wordRank, tatoebaSentenceId, masteryLevel, nextReview, reviewCount, timesCorrect, timesIncorrect)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  const transaction = db.transaction((items: typeof toInsert) => {
-    for (const s of items) {
-      stmt.run(
-        randomUUID(),
-        s.text,
-        s.clozeWord,
-        s.clozeIndex,
-        s.translation,
-        'tatoeba',
-        s.collection,
-        s.wordRank,
-        s.id,
-        0,
-        new Date().toISOString(),
-        0,
-        0,
-        0
+  const updateStmt = db.prepare(`
+    UPDATE clozeSentences SET clozeWord = ?, clozeIndex = ?, wordRank = ?, collection = ? WHERE id = ?
+  `);
+
+  const transaction = db.transaction(() => {
+    for (const s of toInsert) {
+      insertStmt.run(
+        randomUUID(), s.text, s.clozeWord, s.clozeIndex, s.translation,
+        'tatoeba', s.collection, s.wordRank, s.id,
+        0, new Date().toISOString(), 0, 0, 0
       );
+    }
+    for (const s of toUpdate) {
+      updateStmt.run(s.clozeWord, s.clozeIndex, s.wordRank, s.collection, s.id);
     }
   });
 
-  transaction(toInsert);
+  transaction();
 
-  return NextResponse.json({ seeded: toInsert.length, total: sentenceBank.length });
+  return NextResponse.json({ seeded: toInsert.length, updated: toUpdate.length, total: bank.length });
 }
 
 // GET /api/cloze/seed - Check if seeding is needed
