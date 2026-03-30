@@ -17,7 +17,7 @@ export async function GET() {
       collection,
       COUNT(*) as total,
       SUM(CASE WHEN masteryLevel = 100 THEN 1 ELSE 0 END) as mastered,
-      SUM(CASE WHEN nextReview <= ? AND masteryLevel < 100 THEN 1 ELSE 0 END) as due
+      SUM(CASE WHEN nextReview <= ? AND masteryLevel < 100 AND reviewCount > 0 THEN 1 ELSE 0 END) as due
     FROM clozeSentences
     WHERE blacklisted = 0 OR blacklisted IS NULL
     GROUP BY collection
