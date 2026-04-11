@@ -519,7 +519,7 @@ export async function getCollectionCounts(): Promise<Record<ClozeCollection, { t
       .toArray();
 
     counts[collection].total = sentences.length;
-    counts[collection].due = sentences.filter(s => s.nextReview <= now).length;
+    counts[collection].due = sentences.filter(s => s.nextReview <= now && s.reviewCount > 0 && s.masteryLevel < 100).length;
     counts[collection].mastered = sentences.filter(s => s.masteryLevel === 100).length;
   }
 

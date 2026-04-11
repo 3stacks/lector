@@ -134,7 +134,7 @@ function shuffle<T>(arr: T[]): T[] {
   return result;
 }
 
-type PracticeState = 'setup' | 'loading' | 'practicing' | 'feedback' | 'complete';
+type PracticeState = 'setup' | 'loading' | 'practicing' | 'feedback' | 'complete' | 'empty';
 type PracticeMode = 'type' | 'mc';
 
 const ROUND_SIZES = [10, 20, 30, 40, 50] as const;
@@ -318,7 +318,7 @@ export default function PracticePage() {
         setQueue(sentences);
         loadNextSentence(sentences);
       } else {
-        setState('complete');
+        setState('empty');
       }
     } catch (error) {
       console.error('Failed to start round:', error);
@@ -1095,6 +1095,43 @@ export default function PracticePage() {
                 >
                   Play Again
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Empty state - no sentences available */}
+          {state === 'empty' && (
+            <div className="py-8 text-center">
+              <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400">
+                <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h2 className="mb-2 text-xl font-bold text-zinc-900 dark:text-zinc-50">
+                {roundType === 'review' ? 'Nothing to Review' : 'No New Sentences'}
+              </h2>
+              <p className="mb-6 text-sm text-zinc-500 dark:text-zinc-400 max-w-xs mx-auto">
+                {roundType === 'review'
+                  ? 'No sentences are due for review right now. Try learning new ones or check back later.'
+                  : 'You\'ve seen all the sentences in this collection. Try a different collection or review existing ones.'}
+              </p>
+              <div className="flex justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={async () => { setState('setup'); const counts = await getCollectionCounts(); setCollectionCounts(counts); }}
+                  className="rounded-xl px-6 py-3 font-semibold text-zinc-700 bg-zinc-200 hover:bg-zinc-300 transition-all active:scale-95 dark:text-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+                >
+                  Back
+                </button>
+                {roundType === 'review' && (
+                  <button
+                    type="button"
+                    onClick={() => startRoundWith(selectedCollection, 'new', roundSize)}
+                    className="rounded-xl px-6 py-3 font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all active:scale-95 dark:bg-blue-500 dark:hover:bg-blue-600"
+                  >
+                    Learn New Instead
+                  </button>
+                )}
               </div>
             </div>
           )}
