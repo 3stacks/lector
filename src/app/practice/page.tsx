@@ -178,6 +178,7 @@ export default function PracticePage() {
   const [mcSelected, setMcSelected] = useState<number | null>(null);
   const [mcCorrectIdx, setMcCorrectIdx] = useState<number>(0);
   const [mcLocked, setMcLocked] = useState(false);
+  const [mcFallback, setMcFallback] = useState(false); // Temporary MC switch from type mode
 
   // Collection state
   const [selectedCollection, setSelectedCollection] = useState<ClozeCollection>('top500');
@@ -271,6 +272,7 @@ export default function PracticePage() {
     setAnkiError(null);
     setHintLetters(0);
     setShowingAnswer(false);
+    setMcFallback(false);
     setState('practicing');
 
     // Generate MC options if in MC mode
@@ -335,11 +337,24 @@ export default function PracticePage() {
   const handleHint = useCallback(() => {
     if (!current) return;
     const correctWord = normalize(current.sentence.clozeWord);
-    const nextHintCount = Math.min(hintLetters + 1, correctWord.length);
-    setHintLetters(nextHintCount);
-    setUserAnswer(correctWord.slice(0, nextHintCount));
+    const currentInput = normalize(userAnswer);
+
+    // Find how many leading characters are already correct
+    let correctPrefix = 0;
+    for (let i = 0; i < currentInput.length && i < correctWord.length; i++) {
+      if (currentInput[i] === correctWord[i]) {
+        correctPrefix++;
+      } else {
+        break;
+      }
+    }
+
+    // Reveal one more letter beyond the correct prefix
+    const revealCount = Math.min(Math.max(correctPrefix + 1, hintLetters + 1), correctWord.length);
+    setHintLetters(revealCount);
+    setUserAnswer(correctWord.slice(0, revealCount));
     inputRef.current?.focus();
-  }, [current, hintLetters]);
+  }, [current, hintLetters, userAnswer]);
 
   // Handle "give up" - show answer but add to retry queue
   const handleShowAnswer = useCallback(() => {
@@ -821,7 +836,7 @@ export default function PracticePage() {
                 <div className="mb-6">
                   <div className="mb-4 flex items-center justify-between">
                     <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                      {practiceMode === 'mc' ? 'Choose the correct word' : 'Fill in the blank'}
+                      {practiceMode === 'mc' || mcFallback ? 'Choose the correct word' : 'Fill in the blank'}
                     </span>
                     <button
                       type="button"
@@ -839,7 +854,7 @@ export default function PracticePage() {
                       <span key={i}>
                         {i > 0 && ' '}
                         {i === current.sentence.clozeIndex ? (
-                          practiceMode === 'type' ? (
+                          practiceMode === 'type' && !mcFallback ? (
                             <input
                               ref={inputRef}
                               type="text"
@@ -913,7 +928,7 @@ export default function PracticePage() {
                 )}
 
                 {/* Multiple choice options */}
-                {practiceMode === 'mc' && (
+                {(practiceMode === 'mc' || mcFallback) && (
                   <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {mcOptions.map((option, idx) => {
                       let btnClass = 'border-zinc-200 bg-zinc-50 text-zinc-900 hover:bg-zinc-100 hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700';
@@ -947,8 +962,20 @@ export default function PracticePage() {
                 )}
 
                 {/* Type mode buttons */}
-                {practiceMode === 'type' && !showingAnswer && (
-                  <div className="flex justify-center gap-3">
+                {practiceMode === 'type' && !showingAnswer && !mcFallback && (
+                  <div className="flex justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!current) return;
+                        generateMcOptionsForSentence(current.sentence, queue);
+                        setMcFallback(true);
+                      }}
+                      className="rounded-xl px-4 py-3 text-sm font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 dark:text-purple-400 dark:bg-purple-950/30 dark:hover:bg-purple-950/50 transition-all"
+                      title="Switch to multiple choice for this question"
+                    >
+                      Multiple Choice
+                    </button>
                     <button
                       type="button"
                       onClick={handleHint}
@@ -960,7 +987,7 @@ export default function PracticePage() {
                     <button
                       type="button"
                       onClick={fuzzyStatus === 'match' ? handleSubmit : handleShowAnswer}
-                      className={`rounded-xl px-8 py-3 text-lg font-semibold transition-all
+                      className={`rounded-xl px-6 py-3 text-lg font-semibold transition-all
                         ${fuzzyStatus === 'match'
                           ? 'bg-green-600 text-white hover:bg-green-700 active:scale-95 dark:bg-green-500 dark:hover:bg-green-600'
                           : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95 dark:bg-blue-500 dark:hover:bg-blue-600'
@@ -972,7 +999,7 @@ export default function PracticePage() {
                 )}
 
                 {/* TTS hint (MC mode) */}
-                {practiceMode === 'mc' && !mcLocked && ttsSupported && (
+                {(practiceMode === 'mc' || mcFallback) && !mcLocked && ttsSupported && (
                   <div className="flex justify-center mb-2">
                     <button
                       type="button"
@@ -1051,6 +1078,7 @@ export default function PracticePage() {
                 correctWord={feedbackData.correctWord}
                 userAnswer={feedbackData.userAnswer}
                 translation={feedbackData.translation}
+                sentence={current.sentence.sentence}
                 points={feedbackData.points}
                 newMastery={feedbackData.newMastery}
                 previousMastery={feedbackData.previousMastery}

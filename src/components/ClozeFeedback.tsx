@@ -1,10 +1,13 @@
 'use client';
 
+import { useState } from 'react';
+
 interface ClozeFeedbackProps {
   isCorrect: boolean;
   correctWord: string;
   userAnswer: string;
   translation: string;
+  sentence: string;
   points: number;
   newMastery: number;
   previousMastery: number;
@@ -20,6 +23,7 @@ export default function ClozeFeedback({
   correctWord,
   userAnswer,
   translation,
+  sentence,
   points,
   newMastery,
   previousMastery,
@@ -29,6 +33,30 @@ export default function ClozeFeedback({
   ankiAdded = false,
   ankiError = null,
 }: ClozeFeedbackProps) {
+  const [explanation, setExplanation] = useState<string | null>(null);
+  const [isExplaining, setIsExplaining] = useState(false);
+  const [explainError, setExplainError] = useState(false);
+
+  const handleExplain = async () => {
+    if (explanation || isExplaining) return;
+    setIsExplaining(true);
+    setExplainError(false);
+    try {
+      const res = await fetch('/api/explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sentence, translation, clozeWord: correctWord }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setExplanation(data.explanation);
+    } catch {
+      setExplainError(true);
+    } finally {
+      setIsExplaining(false);
+    }
+  };
+
   const masteryLabels: Record<number, string> = {
     0: 'New',
     25: 'Learning',
@@ -145,6 +173,16 @@ export default function ClozeFeedback({
         </div>
       </div>
 
+      {/* Explain section */}
+      {explanation && (
+        <div className="mb-4 rounded-lg bg-white/60 p-4 dark:bg-zinc-900/60">
+          <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-2">Sentence Breakdown</p>
+          <div className="text-sm text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed">
+            {explanation}
+          </div>
+        </div>
+      )}
+
       {/* Action buttons */}
       <div className="flex flex-wrap gap-3">
         {isCorrect && (
@@ -195,6 +233,47 @@ export default function ClozeFeedback({
             )}
           </button>
         )}
+        {/* Explain button */}
+        <button
+          type="button"
+          onClick={handleExplain}
+          disabled={isExplaining || !!explanation}
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+            explanation
+              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400'
+              : explainError
+              ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400'
+              : isExplaining
+              ? 'bg-zinc-100 text-zinc-400 cursor-wait dark:bg-zinc-800 dark:text-zinc-500'
+              : 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/50 dark:text-amber-300 dark:hover:bg-amber-900/70'
+          }`}
+        >
+          {explanation ? (
+            <>
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Explained
+            </>
+          ) : isExplaining ? (
+            <>
+              <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Explaining...
+            </>
+          ) : explainError ? (
+            <>Explain failed</>
+          ) : (
+            <>
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Explain
+            </>
+          )}
+        </button>
         {ankiError && (
           <div className="w-full text-xs text-red-600 dark:text-red-400">
             {ankiError}
