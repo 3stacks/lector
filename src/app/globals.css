@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #f9fafb;
   --foreground: #111827;
@@ -19,18 +21,16 @@
   --font-sans: var(--font-inter);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #111827;
-    --foreground: #f3f4f6;
+.dark {
+  --background: #111827;
+  --foreground: #f3f4f6;
 
-    --word-level1: rgba(96, 165, 250, 0.4);
-    --word-level2: rgba(96, 165, 250, 0.3);
-    --word-level3: rgba(96, 165, 250, 0.2);
-    --word-level4: rgba(96, 165, 250, 0.1);
-    --word-ignored: rgba(107, 114, 128, 0.3);
-    --phrase-highlight: rgba(167, 139, 250, 0.2);
-  }
+  --word-level1: rgba(96, 165, 250, 0.4);
+  --word-level2: rgba(96, 165, 250, 0.3);
+  --word-level3: rgba(96, 165, 250, 0.2);
+  --word-level4: rgba(96, 165, 250, 0.1);
+  --word-ignored: rgba(107, 114, 128, 0.3);
+  --phrase-highlight: rgba(167, 139, 250, 0.2);
 }
 
 body {
