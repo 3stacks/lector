@@ -53,10 +53,6 @@ function getFuzzyStatus(userInput: string, correctWord: string): FuzzyStatus {
 
   if (input === correct) return 'match';
   if (input.length <= correct.length && correct.startsWith(input)) return 'partial';
-  if (input.length > correct.length) return 'wrong';
-
-  const commonPrefixLength = [...input].findIndex((char, i) => correct[i] !== char);
-  if (commonPrefixLength >= 2 && commonPrefixLength >= input.length * 0.6) return 'partial';
 
   return 'wrong';
 }
@@ -199,7 +195,6 @@ export default function PracticePage() {
   const [ankiAdded, setAnkiAdded] = useState(false);
   const [ankiError, setAnkiError] = useState<string | null>(null);
   const [hintLetters, setHintLetters] = useState(0);
-  const [showingAnswer, setShowingAnswer] = useState(false);
   const [retryQueue, setRetryQueue] = useState<ClozeSentence[]>([]);
   const [blacklistToast, setBlacklistToast] = useState(false);
 
@@ -271,7 +266,6 @@ export default function PracticePage() {
     setAnkiAdded(false);
     setAnkiError(null);
     setHintLetters(0);
-    setShowingAnswer(false);
     setMcFallback(false);
     setState('practicing');
 
@@ -356,14 +350,6 @@ export default function PracticePage() {
     inputRef.current?.focus();
   }, [current, hintLetters, userAnswer]);
 
-  // Handle "give up" - show answer but add to retry queue
-  const handleShowAnswer = useCallback(() => {
-    if (!current) return;
-    setShowingAnswer(true);
-    playIncorrectSound();
-    setRetryQueue(prev => [...prev, current.sentence]);
-  }, [current]);
-
   // Handle blacklisting a sentence
   const handleBlacklist = useCallback(async () => {
     if (!current) return;
@@ -386,22 +372,6 @@ export default function PracticePage() {
     }
   }, [current, queue, retryQueue, loadNextSentence]);
 
-  // Continue after seeing the answer
-  const handleContinueAfterShow = useCallback(() => {
-    setShowingAnswer(false);
-    const remainingQueue = queue.slice(1);
-    setQueue(remainingQueue);
-
-    if (remainingQueue.length > 0) {
-      loadNextSentence(remainingQueue);
-    } else if (retryQueue.length > 0) {
-      const nextRetry = retryQueue[0];
-      setRetryQueue(prev => prev.slice(1));
-      loadNextSentence([nextRetry]);
-    } else {
-      setState('complete');
-    }
-  }, [queue, retryQueue, loadNextSentence]);
 
   // Core submission logic (shared between type and MC modes)
   const processAnswer = async (submittedAnswer: string) => {
@@ -458,6 +428,9 @@ export default function PracticePage() {
 
     if (isCorrect) {
       speak(current.sentence.sentence);
+    } else {
+      // Add to retry queue so incorrect answers are re-tested
+      setRetryQueue(prev => [...prev, current.sentence]);
     }
   };
 
@@ -565,14 +538,7 @@ export default function PracticePage() {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-    if (state === 'practicing' && showingAnswer) {
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Enter') { e.preventDefault(); handleContinueAfterShow(); }
-      };
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-    }
-    if (state === 'practicing' && practiceMode === 'mc' && !mcLocked && !showingAnswer) {
+    if (state === 'practicing' && practiceMode === 'mc' && !mcLocked) {
       const handleKeyDown = (e: KeyboardEvent) => {
         // Number keys 1-4 for MC selection
         if (e.key >= '1' && e.key <= '4') {
@@ -592,7 +558,7 @@ export default function PracticePage() {
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
     // Space to trigger TTS in type mode when input is not focused
-    if (state === 'practicing' && practiceMode === 'type' && !showingAnswer) {
+    if (state === 'practicing' && practiceMode === 'type') {
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === ' ' && document.activeElement !== inputRef.current) {
           e.preventDefault();
@@ -602,7 +568,7 @@ export default function PracticePage() {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [state, showingAnswer, handleNext, handleContinueAfterShow, practiceMode, mcLocked, mcOptions, handleMcSelect, current]);
+  }, [state, handleNext, practiceMode, mcLocked, mcOptions, handleMcSelect, current]);
 
   // Handle add to Anki
   const handleAddToAnki = async () => {
@@ -863,11 +829,7 @@ export default function PracticePage() {
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                   e.preventDefault();
-                                  if (fuzzyStatus === 'match') {
-                                    handleSubmit();
-                                  } else {
-                                    handleShowAnswer();
-                                  }
+                                  handleSubmit();
                                 }
                               }}
                               autoComplete="off"
@@ -875,7 +837,7 @@ export default function PracticePage() {
                               autoCorrect="off"
                               spellCheck={false}
                               placeholder="..."
-                              disabled={showingAnswer}
+
                               className={`inline-block w-32 rounded-lg border-2 px-2 py-1 text-center text-xl font-medium outline-none transition-all
                                 focus:ring-2 focus:ring-offset-1
                                 ${inputColorClass}
@@ -905,27 +867,6 @@ export default function PracticePage() {
                     {current.sentence.translation}
                   </p>
                 </div>
-
-                {/* Showing answer overlay (type mode only) */}
-                {showingAnswer && practiceMode === 'type' && (
-                  <div className="mb-4 rounded-xl bg-amber-50 border-2 border-amber-200 p-4 dark:bg-amber-950/30 dark:border-amber-800">
-                    <p className="text-center text-lg font-medium text-amber-800 dark:text-amber-200">
-                      The answer was: <span className="font-bold">{current.sentence.clozeWord}</span>
-                    </p>
-                    <p className="text-center text-sm text-amber-600 dark:text-amber-400 mt-1">
-                      You&apos;ll see this sentence again later
-                    </p>
-                    <div className="flex justify-center mt-3">
-                      <button
-                        type="button"
-                        onClick={handleContinueAfterShow}
-                        className="rounded-lg bg-amber-500 px-6 py-2 text-white font-medium hover:bg-amber-600 active:scale-95 transition-all"
-                      >
-                        Continue
-                      </button>
-                    </div>
-                  </div>
-                )}
 
                 {/* Multiple choice options */}
                 {(practiceMode === 'mc' || mcFallback) && (
@@ -962,7 +903,7 @@ export default function PracticePage() {
                 )}
 
                 {/* Type mode buttons */}
-                {practiceMode === 'type' && !showingAnswer && !mcFallback && (
+                {practiceMode === 'type' && !mcFallback && (
                   <div className="flex justify-center gap-2">
                     <button
                       type="button"
@@ -986,12 +927,13 @@ export default function PracticePage() {
                     </button>
                     <button
                       type="button"
-                      onClick={fuzzyStatus === 'match' ? handleSubmit : handleShowAnswer}
+                      onClick={handleSubmit}
+                      disabled={!userAnswer.trim()}
                       className={`rounded-xl px-6 py-3 text-lg font-semibold transition-all
                         ${fuzzyStatus === 'match'
                           ? 'bg-green-600 text-white hover:bg-green-700 active:scale-95 dark:bg-green-500 dark:hover:bg-green-600'
                           : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95 dark:bg-blue-500 dark:hover:bg-blue-600'
-                        }`}
+                        } disabled:opacity-40`}
                     >
                       {fuzzyStatus === 'match' ? 'Submit' : 'Check'}
                     </button>

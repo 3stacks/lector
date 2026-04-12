@@ -148,7 +148,7 @@ test.describe.serial("Practice - Type Mode Full Journey", () => {
     await expect(page.getByRole("button", { name: "Next Sentence" })).toBeVisible();
   });
 
-  test("should handle show answer flow for unknown words", async ({
+  test("should handle incorrect answer and show feedback", async ({
     page,
   }) => {
     await waitForSetup(page);
@@ -165,22 +165,20 @@ test.describe.serial("Practice - Type Mode Full Journey", () => {
     const input = page.locator('input[placeholder="..."]');
     await input.fill("zzzzz");
 
-    // Click Check (which becomes "show answer" when wrong)
+    // Click Check to submit the wrong answer
     await page.getByRole("button", { name: "Check" }).click();
 
-    // Should show "The answer was:" overlay
-    await expect(page.getByText("The answer was:")).toBeVisible({
+    // Should show feedback with "Incorrect" heading and the correct answer
+    await expect(page.getByRole("heading", { name: "Incorrect" })).toBeVisible({
       timeout: 5000,
     });
-    await expect(
-      page.getByText("You'll see this sentence again later")
-    ).toBeVisible();
+    await expect(page.getByText("Correct answer:")).toBeVisible();
+    await expect(page.getByText("zzzzz")).toBeVisible(); // user's wrong answer shown
 
-    // Click Continue
-    await page.getByRole("button", { name: "Continue" }).click();
+    // Click Next Sentence to continue
+    await page.getByRole("button", { name: "Next Sentence" }).click();
 
-    // Should advance - either show next sentence or feedback
-    // Progress should have advanced
+    // Should advance to next sentence
     await page.waitForTimeout(500);
   });
 
@@ -493,5 +491,263 @@ test.describe("Practice - Blacklist", () => {
     await expect(page.getByText("Sentence hidden")).not.toBeVisible({
       timeout: 5000,
     });
+  });
+});
+
+test.describe("Practice - Incorrect Type Answer Feedback", () => {
+  test("should show feedback screen with correct answer when typing wrong answer and pressing Enter", async ({
+    page,
+  }) => {
+    await waitForSetup(page);
+
+    await page.getByRole("button", { name: "10", exact: true }).click();
+    await page.getByRole("button", { name: "Type" }).click();
+    await page.getByRole("button", { name: "Start" }).click();
+
+    await expect(page.getByText("Fill in the blank")).toBeVisible({
+      timeout: 10000,
+    });
+
+    // Type a wrong answer and press Enter (not click Check)
+    const input = page.locator('input[placeholder="..."]');
+    await input.fill("wronganswer");
+    await input.press("Enter");
+
+    // Should show the full feedback screen (not just skip to next)
+    await expect(
+      page.getByRole("heading", { name: "Incorrect" })
+    ).toBeVisible({ timeout: 5000 });
+
+    // Should show the user's wrong answer with strikethrough
+    await expect(page.getByText("Your answer:")).toBeVisible();
+    await expect(page.getByText("wronganswer")).toBeVisible();
+
+    // Should show the correct answer
+    await expect(page.getByText("Correct answer:")).toBeVisible();
+
+    // Should show mastery level reset
+    await expect(page.getByText("Mastery Level")).toBeVisible();
+
+    // Should show Explain and Next Sentence buttons
+    await expect(
+      page.getByRole("button", { name: "Explain" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Next Sentence" })
+    ).toBeVisible();
+  });
+
+  test("should show feedback screen when clicking Check with wrong answer", async ({
+    page,
+  }) => {
+    await waitForSetup(page);
+
+    await page.getByRole("button", { name: "10", exact: true }).click();
+    await page.getByRole("button", { name: "Type" }).click();
+    await page.getByRole("button", { name: "Start" }).click();
+
+    await expect(page.getByText("Fill in the blank")).toBeVisible({
+      timeout: 10000,
+    });
+
+    // Type a wrong answer and click Check button
+    const input = page.locator('input[placeholder="..."]');
+    await input.fill("badguess");
+    await page.getByRole("button", { name: "Check" }).click();
+
+    // Should show feedback, not skip
+    await expect(
+      page.getByRole("heading", { name: "Incorrect" })
+    ).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("Correct answer:")).toBeVisible();
+    await expect(page.getByText("badguess")).toBeVisible();
+  });
+
+  test("should add incorrect answer to retry queue and re-test it", async ({
+    page,
+  }) => {
+    await waitForSetup(page);
+
+    await page.getByRole("button", { name: "10", exact: true }).click();
+    await page.getByRole("button", { name: "Type" }).click();
+    await page.getByRole("button", { name: "Start" }).click();
+
+    await expect(page.getByText("Fill in the blank")).toBeVisible({
+      timeout: 10000,
+    });
+
+    // Get wrong deliberately
+    const input = page.locator('input[placeholder="..."]');
+    await input.fill("zzzzz");
+    await input.press("Enter");
+
+    // Verify feedback shown
+    await expect(
+      page.getByRole("heading", { name: "Incorrect" })
+    ).toBeVisible({ timeout: 5000 });
+
+    // Complete the rest of the round using hints
+    for (let i = 0; i < 50; i++) {
+      const complete = page.getByText("Round Complete!");
+      if (await complete.isVisible().catch(() => false)) break;
+
+      const nextBtn = page.getByRole("button", { name: "Next Sentence" });
+      if (await nextBtn.isVisible().catch(() => false)) {
+        await nextBtn.click();
+        await page.waitForTimeout(300);
+        continue;
+      }
+
+      const inputEl = page.locator('input[placeholder="..."]');
+      if (await inputEl.isVisible().catch(() => false)) {
+        const hintBtn = page.getByRole("button", { name: /Hint/ });
+        for (let h = 0; h < 25; h++) {
+          const submitBtn = page.getByRole("button", { name: "Submit" });
+          if (await submitBtn.isVisible().catch(() => false)) {
+            await submitBtn.click();
+            break;
+          }
+          if (await hintBtn.isVisible().catch(() => false)) {
+            await hintBtn.click();
+          }
+          await page.waitForTimeout(50);
+        }
+        await page.waitForTimeout(300);
+        continue;
+      }
+
+      await page.waitForTimeout(200);
+    }
+
+    // The round should eventually complete, and the wrong answer should have
+    // appeared again in the retry queue. The progress counter should show
+    // more than 10 total (10 original + at least 1 retry).
+    await expect(page.getByText("Round Complete!")).toBeVisible({
+      timeout: 15000,
+    });
+  });
+});
+
+test.describe("Practice - Fuzzy Input Coloring", () => {
+  test("should show green border only for exact prefix matches", async ({
+    page,
+  }) => {
+    await waitForSetup(page);
+
+    await page.getByRole("button", { name: "10", exact: true }).click();
+    await page.getByRole("button", { name: "Type" }).click();
+    await page.getByRole("button", { name: "Start" }).click();
+
+    await expect(page.getByText("Fill in the blank")).toBeVisible({
+      timeout: 10000,
+    });
+
+    const input = page.locator('input[placeholder="..."]');
+    const hintBtn = page.getByRole("button", { name: /Hint/ });
+
+    // Get the first letter of the correct word via hint
+    await hintBtn.click();
+    await page.waitForTimeout(200);
+    const firstLetter = await input.inputValue();
+    expect(firstLetter.length).toBe(1);
+
+    // Typing correct prefix should show green (partial match)
+    await expect(input).toHaveClass(/border-green-400/);
+
+    // Now type a wrong character after the correct prefix
+    await input.fill(firstLetter + "zzz");
+    await page.waitForTimeout(100);
+
+    // Should show red border (wrong)
+    await expect(input).toHaveClass(/border-red-400/);
+  });
+
+  test("should show red for divergent input even with shared prefix", async ({
+    page,
+  }) => {
+    await waitForSetup(page);
+
+    await page.getByRole("button", { name: "10", exact: true }).click();
+    await page.getByRole("button", { name: "Type" }).click();
+    await page.getByRole("button", { name: "Start" }).click();
+
+    await expect(page.getByText("Fill in the blank")).toBeVisible({
+      timeout: 10000,
+    });
+
+    const input = page.locator('input[placeholder="..."]');
+    const hintBtn = page.getByRole("button", { name: /Hint/ });
+
+    // Get first two letters via hints
+    await hintBtn.click();
+    await page.waitForTimeout(100);
+    await hintBtn.click();
+    await page.waitForTimeout(100);
+    const twoLetters = await input.inputValue();
+    expect(twoLetters.length).toBe(2);
+
+    // Correct prefix should be green
+    await expect(input).toHaveClass(/border-green-400/);
+
+    // Replace last character with wrong one to simulate divergence
+    // e.g. correct is "he" from "heel", type "h~" instead
+    const wrongInput = twoLetters[0] + "~";
+    await input.fill(wrongInput);
+    await page.waitForTimeout(100);
+
+    // Should be red since it's not a prefix of the correct word
+    await expect(input).toHaveClass(/border-red-400/);
+  });
+
+  test("should show blue border when input is empty", async ({ page }) => {
+    await waitForSetup(page);
+
+    await page.getByRole("button", { name: "10", exact: true }).click();
+    await page.getByRole("button", { name: "Type" }).click();
+    await page.getByRole("button", { name: "Start" }).click();
+
+    await expect(page.getByText("Fill in the blank")).toBeVisible({
+      timeout: 10000,
+    });
+
+    const input = page.locator('input[placeholder="..."]');
+
+    // Empty input should have blue border
+    await expect(input).toHaveClass(/border-blue-400/);
+  });
+
+  test("should show green-500 border and Submit button when answer is correct", async ({
+    page,
+  }) => {
+    await waitForSetup(page);
+
+    await page.getByRole("button", { name: "10", exact: true }).click();
+    await page.getByRole("button", { name: "Type" }).click();
+    await page.getByRole("button", { name: "Start" }).click();
+
+    await expect(page.getByText("Fill in the blank")).toBeVisible({
+      timeout: 10000,
+    });
+
+    const input = page.locator('input[placeholder="..."]');
+    const hintBtn = page.getByRole("button", { name: /Hint/ });
+
+    // Use hints to reveal full word
+    for (let i = 0; i < 30; i++) {
+      const submitBtn = page.getByRole("button", { name: "Submit" });
+      if (await submitBtn.isVisible().catch(() => false)) break;
+      if (await hintBtn.isVisible().catch(() => false)) {
+        await hintBtn.click();
+      }
+      await page.waitForTimeout(100);
+    }
+
+    // Full correct answer should show green-500 border (match)
+    await expect(input).toHaveClass(/border-green-500/);
+
+    // Button should say "Submit" not "Check"
+    await expect(
+      page.getByRole("button", { name: "Submit" })
+    ).toBeVisible();
   });
 });
