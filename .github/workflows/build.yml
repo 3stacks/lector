@@ -35,7 +35,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/3stacks/afrikaans-reader
+          images: ghcr.io/3stacks/lector
           tags: |
             type=sha,prefix=
             type=ref,event=branch

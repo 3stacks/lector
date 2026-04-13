@@ -112,7 +112,7 @@ export async function addBasicCard(
       options: {
         allowDuplicate: true, // Allow duplicates - same word from different sentences is fine
       },
-      tags: ["afrikaans-reader", "vocabulary"],
+      tags: ["lector", "vocabulary"],
     },
   });
 
@@ -164,7 +164,7 @@ export async function addClozeCard(
       options: {
         allowDuplicate: true, // Allow duplicates - user may want the same word from different sentences
       },
-      tags: ["afrikaans-reader", "vocabulary", "cloze"],
+      tags: ["lector", "vocabulary", "cloze"],
     },
   });
 
@@ -179,17 +179,17 @@ export async function addClozeCard(
 
 /**
  * Get word states based on Anki intervals for syncing mastery levels
- * This queries Anki for cards with the afrikaans-reader tag and returns
+ * This queries Anki for cards with the lector tag and returns
  * their intervals, which can be used to determine mastery level
  */
 export async function syncWordStates(deckName?: string): Promise<
   Map<string, { interval: number; deckName: string }>
 > {
   // Find cards - either by tag or by deck name
-  let query = "tag:afrikaans-reader";
+  let query = "(tag:lector OR tag:afrikaans-reader)";
   if (deckName) {
-    // Search in the specified deck OR with our tag
-    query = `("deck:${deckName}" OR tag:afrikaans-reader)`;
+    // Search in the specified deck OR with our tags
+    query = `("deck:${deckName}" OR tag:lector OR tag:afrikaans-reader)`;
   }
 
   console.log(`Anki sync query: ${query}`);

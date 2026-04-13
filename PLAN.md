@@ -1,6 +1,6 @@
-# Afrikaans Reader
+# Lector
 
-A Lingq replacement for reading Afrikaans books, mining sentences, and building vocabulary.
+A self-hosted LingQ replacement for reading books, mining sentences, and building vocabulary.
 
 ## Why
 
@@ -89,7 +89,7 @@ A Lingq replacement for reading Afrikaans books, mining sentences, and building 
 
 ### Project Structure
 ```
-afrikaans-reader/
+lector/
 ├── app/
 │   ├── page.tsx              # Library view
 │   ├── read/[bookId]/page.tsx # Reading view

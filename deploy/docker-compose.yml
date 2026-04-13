@@ -1,7 +1,7 @@
 services:
-  afrikaans-reader:
-    image: ghcr.io/3stacks/afrikaans-reader:${AFRIKAANS_READER_VERSION:-latest}
-    container_name: afrikaans-reader
+  lector:
+    image: ghcr.io/3stacks/lector:${LECTOR_VERSION:-latest}
+    container_name: lector
     restart: unless-stopped
     volumes:
       - ${DATA_PATH:-./data}:/app/data

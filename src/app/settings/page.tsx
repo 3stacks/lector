@@ -24,13 +24,13 @@ import {
 
 // Settings keys for localStorage
 const SETTINGS_KEYS = {
-  ANTHROPIC_API_KEY: "afrikaans-reader-api-key",
-  GOOGLE_CLOUD_API_KEY: "afrikaans-reader-google-api-key",
-  ANKI_DECK_NAME: "afrikaans-reader-anki-deck",
-  ANKI_CLOZE_DECK_NAME: "afrikaans-reader-anki-cloze-deck",
-  DEFAULT_CARD_TYPE: "afrikaans-reader-card-type",
-  TTS_SPEED: "afrikaans-reader-tts-speed",
-  THEME: "afrikaans-reader-theme",
+  ANTHROPIC_API_KEY: "lector-api-key",
+  GOOGLE_CLOUD_API_KEY: "lector-google-api-key",
+  ANKI_DECK_NAME: "lector-anki-deck",
+  ANKI_CLOZE_DECK_NAME: "lector-anki-cloze-deck",
+  DEFAULT_CARD_TYPE: "lector-card-type",
+  TTS_SPEED: "lector-tts-speed",
+  THEME: "lector-theme",
 } as const;
 
 type CardType = "basic" | "cloze";
@@ -420,20 +420,13 @@ export default function SettingsPage() {
   const exportFullBackup = async () => {
     try {
       const data = await exportAllData();
-      // Convert ArrayBuffer to base64 for books
       const exportData = {
         ...data,
-        books: await Promise.all(
-          data.books.map(async (book) => ({
-            ...book,
-            fileData: arrayBufferToBase64(book.fileData),
-          }))
-        ),
         exportedAt: new Date().toISOString(),
-        version: 1,
+        version: 2,
       };
       const json = JSON.stringify(exportData, null, 2);
-      downloadFile(json, "afrikaans-reader-backup.json", "application/json");
+      downloadFile(json, "lector-backup.json", "application/json");
       setExportStatus("Full backup exported.");
     } catch (error) {
       setExportStatus(`Backup failed: ${error instanceof Error ? error.message : "Unknown error"}`);
@@ -459,7 +452,7 @@ export default function SettingsPage() {
 
       if (result.success) {
         const counts = result.imported;
-        setExportStatus(`Backup imported: ${counts.books || 0} books, ${counts.vocab || 0} vocab, ${counts.knownWords || 0} known words, ${counts.clozeSentences || 0} cloze sentences.`);
+        setExportStatus(`Backup imported: ${counts.collections || 0} collections, ${counts.lessons || 0} lessons, ${counts.vocab || 0} vocab, ${counts.knownWords || 0} known words, ${counts.clozeSentences || 0} cloze sentences.`);
       } else {
         throw new Error("Import failed");
       }
@@ -508,26 +501,6 @@ export default function SettingsPage() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  };
-
-  // Helper to convert ArrayBuffer to base64
-  const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
-    const bytes = new Uint8Array(buffer);
-    let binary = "";
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-  };
-
-  // Helper to convert base64 to ArrayBuffer
-  const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes.buffer;
   };
 
   return (

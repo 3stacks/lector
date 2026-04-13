@@ -28,7 +28,7 @@ function fetchTatoeba(path: string): Promise<TatoebaSearchResult> {
       family: 4, // Force IPv4 to avoid connectivity issues
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'AfrikaansReader/1.0',
+        'User-Agent': 'Lector/1.0',
       },
     };
 

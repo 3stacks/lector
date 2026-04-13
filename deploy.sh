@@ -3,7 +3,7 @@ set -e
 
 # Configuration
 REGISTRY="ghcr.io/3stacks"
-IMAGE_NAME="afrikaans-reader"
+IMAGE_NAME="lector"
 VERSION="${1:-$(git describe --tags --always --dirty)}"
 
 # Full image name

@@ -1,6 +1,6 @@
-# Afrikaans Reader
+# Lector
 
-A self-hosted language learning app for Afrikaans — LingQ-style reader, Clozemaster-style cloze practice, and AnkiConnect integration.
+A self-hosted language learning reader — LingQ-style reading, Clozemaster-style cloze practice, and AnkiConnect integration.
 
 ## Features
 
@@ -60,16 +60,16 @@ In AnkiConnect's config, ensure your app origin is allowed:
 The image is published to GHCR on every push to master.
 
 ```bash
-docker pull ghcr.io/3stacks/afrikaans-reader:latest
+docker pull ghcr.io/3stacks/lector:latest
 ```
 
 ### Docker Compose
 
 ```yaml
 services:
-  afrikaans-reader:
-    image: ghcr.io/3stacks/afrikaans-reader:latest
-    container_name: afrikaans-reader
+  lector:
+    image: ghcr.io/3stacks/lector:latest
+    container_name: lector
     restart: unless-stopped
     ports:
       - "3400:3000"
