@@ -33,8 +33,8 @@ let voiceInitialized = false;
 let audioElement: HTMLAudioElement | null = null;
 
 // LocalStorage keys
-const VOICE_PREF_KEY = 'afrikaans-reader-tts-voice';
-const TTS_MODE_KEY = 'afrikaans-reader-tts-mode';
+const VOICE_PREF_KEY = 'lector-tts-voice';
+const TTS_MODE_KEY = 'lector-tts-mode';
 
 // TTS modes
 export type TTSMode = 'google' | 'browser';

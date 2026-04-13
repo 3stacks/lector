@@ -22,7 +22,7 @@ import { speak, isTTSAvailable } from '@/lib/tts';
 import { playCorrectSound, playIncorrectSound } from '@/lib/sounds';
 import { addClozeCard, isAnkiConnected } from '@/lib/anki';
 
-const ANKI_CLOZE_DECK_SETTING_KEY = 'afrikaans-reader-anki-cloze-deck';
+const ANKI_CLOZE_DECK_SETTING_KEY = 'lector-anki-cloze-deck';
 const DEFAULT_ANKI_CLOZE_DECK = 'Afrikaans::Cloze';
 
 // Helper function to create blanked sentence

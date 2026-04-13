@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Weekly backup script for Afrikaans Reader
+# Weekly backup script for Lector
 # Backs up configuration and exported data to Proton Drive via rclone
 #
 # Prerequisites:
@@ -13,7 +13,7 @@
 #   ./scripts/backup.sh
 #
 # Cron (weekly on Sunday at 2am):
-#   0 2 * * 0 /path/to/afrikaans-reader/scripts/backup.sh >> /var/log/afrikaans-backup.log 2>&1
+#   0 2 * * 0 /path/to/lector/scripts/backup.sh >> /var/log/lector-backup.log 2>&1
 
 set -euo pipefail
 
@@ -22,9 +22,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(dirname "$SCRIPT_DIR")"
 BACKUP_DIR="${APP_DIR}/backups"
 RCLONE_REMOTE="protondrive"
-REMOTE_PATH="Backups/afrikaans-reader"
+REMOTE_PATH="Backups/lector"
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-BACKUP_NAME="afrikaans-backup-${TIMESTAMP}"
+BACKUP_NAME="lector-backup-${TIMESTAMP}"
 KEEP_LOCAL_DAYS=7
 
 # Colors for output
@@ -110,7 +110,7 @@ fi
 
 # Clean up old local backups (keep last N days)
 log "Cleaning up local backups older than ${KEEP_LOCAL_DAYS} days..."
-find "${BACKUP_DIR}" -name "afrikaans-backup-*.tar.gz" -mtime +${KEEP_LOCAL_DAYS} -delete 2>/dev/null || true
+find "${BACKUP_DIR}" -name "lector-backup-*.tar.gz" -mtime +${KEEP_LOCAL_DAYS} -delete 2>/dev/null || true
 
 # Clean up old remote backups (keep last 4 weeks)
 log "Cleaning up remote backups (keeping last 4)..."

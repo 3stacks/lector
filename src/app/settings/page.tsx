@@ -24,13 +24,13 @@ import {
 
 // Settings keys for localStorage
 const SETTINGS_KEYS = {
-  ANTHROPIC_API_KEY: "afrikaans-reader-api-key",
-  GOOGLE_CLOUD_API_KEY: "afrikaans-reader-google-api-key",
-  ANKI_DECK_NAME: "afrikaans-reader-anki-deck",
-  ANKI_CLOZE_DECK_NAME: "afrikaans-reader-anki-cloze-deck",
-  DEFAULT_CARD_TYPE: "afrikaans-reader-card-type",
-  TTS_SPEED: "afrikaans-reader-tts-speed",
-  THEME: "afrikaans-reader-theme",
+  ANTHROPIC_API_KEY: "lector-api-key",
+  GOOGLE_CLOUD_API_KEY: "lector-google-api-key",
+  ANKI_DECK_NAME: "lector-anki-deck",
+  ANKI_CLOZE_DECK_NAME: "lector-anki-cloze-deck",
+  DEFAULT_CARD_TYPE: "lector-card-type",
+  TTS_SPEED: "lector-tts-speed",
+  THEME: "lector-theme",
 } as const;
 
 type CardType = "basic" | "cloze";
@@ -426,7 +426,7 @@ export default function SettingsPage() {
         version: 2,
       };
       const json = JSON.stringify(exportData, null, 2);
-      downloadFile(json, "afrikaans-reader-backup.json", "application/json");
+      downloadFile(json, "lector-backup.json", "application/json");
       setExportStatus("Full backup exported.");
     } catch (error) {
       setExportStatus(`Backup failed: ${error instanceof Error ? error.message : "Unknown error"}`);

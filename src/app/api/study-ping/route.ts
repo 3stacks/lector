@@ -6,7 +6,7 @@ function getTodayDate(): string {
 }
 
 // GET /api/study-ping
-// Returns whether any Afrikaans study happened today.
+// Returns whether any language study happened today.
 // Intended for Sphere Guardian MCP to poll.
 export async function GET() {
   const today = getTodayDate();

@@ -1,7 +1,7 @@
 services:
-  afrikaans-reader:
-    image: ghcr.io/3stacks/afrikaans-reader:latest
-    container_name: afrikaans-reader
+  lector:
+    image: ghcr.io/3stacks/lector:latest
+    container_name: lector
     restart: unless-stopped
     ports:
       - "3400:3000"

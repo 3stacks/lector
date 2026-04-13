@@ -318,7 +318,7 @@ export default function VocabPage() {
     loadData();
     checkAnkiConnection();
     // Load deck name from settings
-    const savedDeck = localStorage.getItem("afrikaans-reader-anki-deck");
+    const savedDeck = localStorage.getItem("lector-anki-deck");
     if (savedDeck) {
       setAnkiDeck(savedDeck);
     }
@@ -350,7 +350,7 @@ export default function VocabPage() {
       if (connected) {
         const decks = await getDeckNames();
         // Only auto-select a deck if the user hasn't saved a preference
-        const savedDeck = localStorage.getItem("afrikaans-reader-anki-deck");
+        const savedDeck = localStorage.getItem("lector-anki-deck");
         if (!savedDeck) {
           const afrikaansDeck = decks.find((d) =>
             d.toLowerCase().includes("afrikaans")
@@ -505,7 +505,7 @@ export default function VocabPage() {
 
     try {
       // Get deck name from settings
-      const deckName = localStorage.getItem("afrikaans-reader-anki-deck") || ankiDeck;
+      const deckName = localStorage.getItem("lector-anki-deck") || ankiDeck;
       console.log(`Syncing with Anki deck: "${deckName}"`);
       const wordStates = await syncWordStates(deckName);
       console.log(`Found ${wordStates.size} words in Anki`);
