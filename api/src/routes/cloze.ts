@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { db, ClozeSentenceRow, ClozeMasteryLevel } from '../db';
 import { randomUUID } from 'crypto';
-import sentenceBank from '../../../src/lib/sentence-bank.json';
+import sentenceBank from '../lib/sentence-bank.json';
 
 type BankEntry = {
   id: number;
