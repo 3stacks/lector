@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { client } from '@/lib/server/anthropic';
+import { prompt as askClaude } from '@/lib/server/anthropic';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,23 +14,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const message = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      messages: [
-        {
-          role: 'user',
-          content: `Break down this Afrikaans sentence for a language learner. Explain each word, its role in the sentence, and any grammar points. Keep it concise but educational. Focus especially on the word "${clozeWord}" since that's the word being studied.
+    const text = await askClaude(
+      `Break down this Afrikaans sentence for a language learner. Explain each word, its role in the sentence, and any grammar points. Keep it concise but educational. Focus especially on the word "${clozeWord}" since that's the word being studied.
 
 Sentence: "${sentence}"
 Translation: "${translation}"
 Study word: "${clozeWord}"`,
-        },
-      ],
-    });
-
-    const text =
-      message.content[0].type === 'text' ? message.content[0].text : '';
+      1024,
+      'haiku'
+    );
 
     return NextResponse.json({ explanation: text });
   } catch (error) {

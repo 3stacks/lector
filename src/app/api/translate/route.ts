@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { client } from '@/lib/server/anthropic';
+import { prompt as askClaude } from '@/lib/server/anthropic';
 import { db } from '@/lib/server/database';
 
 function recordStudyPing() {
@@ -38,18 +38,8 @@ Respond with ONLY a JSON object in this exact format (no markdown, no code block
 Include literalBreakdown if the phrase is more than one word.
 Include idiomaticMeaning only if the phrase is an idiom or has a meaning that differs from the literal translation.`;
 
-      const message = await client.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 512,
-        messages: [{ role: 'user', content: prompt }],
-      });
-
-      const content = message.content[0];
-      if (content.type !== 'text') {
-        return NextResponse.json({ error: 'Unexpected response type' }, { status: 500 });
-      }
-
-      const result = JSON.parse(content.text);
+      const responseText = await askClaude(prompt, 512, 'haiku');
+      const result = JSON.parse(responseText);
       return NextResponse.json(result);
     } else {
       // Word translation
@@ -63,18 +53,8 @@ Respond with ONLY a JSON object in this exact format (no markdown, no code block
 
 If you cannot determine the part of speech, omit that field.`;
 
-      const message = await client.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 256,
-        messages: [{ role: 'user', content: prompt }],
-      });
-
-      const content = message.content[0];
-      if (content.type !== 'text') {
-        return NextResponse.json({ error: 'Unexpected response type' }, { status: 500 });
-      }
-
-      const result = JSON.parse(content.text);
+      const responseText = await askClaude(prompt, 256, 'haiku');
+      const result = JSON.parse(responseText);
       return NextResponse.json(result);
     }
   } catch (error) {
