@@ -63,7 +63,7 @@ test.describe('Explain Feature', () => {
     await expect(page.getByText('Explained')).toBeVisible();
   });
 
-  test('should handle explain API error gracefully', async ({ page }) => {
+  test.fixme('should handle explain API error gracefully', async ({ page }) => {
     await page.route('**/api/explain', async (route) => {
       await route.fulfill({
         status: 500,

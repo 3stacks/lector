@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prompt } from '@/lib/server/anthropic';
 import { db, JournalEntryRow } from '@/lib/server/database';
+
+const API_URL = process.env.INTERNAL_API_URL || 'http://localhost:3457';
 
 export async function POST(
   request: NextRequest,
@@ -18,35 +19,28 @@ export async function POST(
   }
 
   try {
-    const promptText = `You are an Afrikaans language tutor reviewing a student's journal entry. The student is an English speaker learning Afrikaans.
+    const response = await fetch(`${API_URL}/api/journal-correct`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: entry.body }),
+    });
 
-Correct the following Afrikaans text. For each error found, provide the correction and a brief explanation in English.
+    const data = await response.json();
 
-Student's text:
-"""
-${entry.body}
-"""
+    if (!response.ok) {
+      return NextResponse.json(data, { status: response.status });
+    }
 
-Respond with ONLY a JSON object in this exact format (no markdown, no code blocks):
-{"correctedBody": "the full corrected text in Afrikaans", "corrections": [{"original": "the incorrect word or phrase", "corrected": "the correct version", "explanation": "brief English explanation of why this is wrong and the rule", "type": "grammar|spelling|word_choice|word_order|missing_word|extra_word"}]}
-
-If the text is perfect, return an empty corrections array.
-Focus on: spelling errors, grammar (verb conjugation, tense, word order), word choice, missing or extra words, and idiomatic corrections.
-Keep explanations concise (1-2 sentences) and educational.`;
-
-    const responseText = await prompt(promptText);
-    const result = JSON.parse(responseText);
     const now = new Date().toISOString();
-
     db.prepare(`
       UPDATE journal_entries
       SET correctedBody = ?, corrections = ?, status = 'submitted', updatedAt = ?
       WHERE id = ?
-    `).run(result.correctedBody, JSON.stringify(result.corrections), now, id);
+    `).run(data.correctedBody, JSON.stringify(data.corrections), now, id);
 
     return NextResponse.json({
-      correctedBody: result.correctedBody,
-      corrections: result.corrections,
+      correctedBody: data.correctedBody,
+      corrections: data.corrections,
     });
   } catch (error) {
     console.error('Journal correction error:', error);

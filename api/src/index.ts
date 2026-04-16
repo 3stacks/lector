@@ -19,6 +19,7 @@ import studyPing from './routes/study-ping';
 import data from './routes/data';
 import extractUrl from './routes/extract-url';
 import importRoutes from './routes/import';
+import journalCorrect from './routes/journal-correct';
 import llmStatus from './routes/llm-status';
 
 const app = new Hono();
@@ -42,6 +43,7 @@ app.route('/api/study-ping', studyPing);
 app.route('/api/data', data);
 app.route('/api/extract-url', extractUrl);
 app.route('/api/import', importRoutes);
+app.route('/api/journal-correct', journalCorrect);
 app.route('/api/llm-status', llmStatus);
 
 // Capture unhandled errors to Sentry/GlitchTip
