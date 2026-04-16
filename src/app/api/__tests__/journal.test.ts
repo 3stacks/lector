@@ -42,8 +42,8 @@ afterEach(() => {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function makeRequest(url: string, init?: RequestInit): Request {
-  return new Request(`http://localhost${url}`, init);
+function makeRequest(url: string, init?: RequestInit) {
+  return new Request(`http://localhost${url}`, init) as unknown as import('next/server').NextRequest;
 }
 
 function insertEntry(
