@@ -126,8 +126,10 @@ jobs:
             type=raw,value=latest
       - name: Create multi-arch manifest
         run: |
-          for TAG in ${{ steps.meta.outputs.tags }}; do
-            docker buildx imagetools create -t "$TAG" \
-              ghcr.io/heuwels/lector:sha-${{ github.sha }}-amd64 \
-              ghcr.io/heuwels/lector:sha-${{ github.sha }}-arm64
-          done
+          TAG_ARGS=""
+          while IFS= read -r TAG; do
+            TAG_ARGS="$TAG_ARGS -t $TAG"
+          done <<< "${{ steps.meta.outputs.tags }}"
+          docker buildx imagetools create $TAG_ARGS \
+            ghcr.io/heuwels/lector:sha-${{ github.sha }}-amd64 \
+            ghcr.io/heuwels/lector:sha-${{ github.sha }}-arm64
