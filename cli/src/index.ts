@@ -34,17 +34,13 @@ function parseArgs(args: string[]): {
   const flags: Record<string, string> = {};
   const positional: string[] = [];
 
-  let i = 0;
-  // First two positional args are resource and action
-  const resource = args[i++] || '';
-  const action = args[i++] || '';
-
-  while (i < args.length) {
+  // First pass: extract all --flags from anywhere in the args
+  const remaining: string[] = [];
+  for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg.startsWith('--')) {
       const key = arg.slice(2);
       const next = args[i + 1];
-      // Boolean flags (no value following, or next arg is also a flag)
       if (!next || next.startsWith('--')) {
         flags[key] = 'true';
       } else {
@@ -52,10 +48,14 @@ function parseArgs(args: string[]): {
         i++;
       }
     } else {
-      positional.push(arg);
+      remaining.push(arg);
     }
-    i++;
   }
+
+  // First two remaining positional args are resource and action
+  const resource = remaining[0] || '';
+  const action = remaining[1] || '';
+  positional.push(...remaining.slice(2));
 
   return { resource, action, positional, flags };
 }
@@ -82,6 +82,11 @@ async function main(): Promise<void> {
 
   if (args.length === 0 || args[0] === 'help' || args[0] === '--help' || args[0] === '-h') {
     printHelp();
+    return;
+  }
+
+  if (args[0] === '--version' || args[0] === '-v') {
+    console.log('lector-cli 0.1.0');
     return;
   }
 

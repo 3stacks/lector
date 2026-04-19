@@ -34,7 +34,9 @@ export function loadConfig(): LectorConfig {
 export function saveConfig(config: LectorConfig): void {
   const dir = getConfigDir();
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(getConfigPath(), JSON.stringify(config, null, 2) + '\n');
+  const configPath = getConfigPath();
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+  fs.chmodSync(configPath, 0o600);
 }
 
 export function maskToken(token: string): string {

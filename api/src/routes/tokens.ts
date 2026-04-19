@@ -1,12 +1,18 @@
 import { Hono } from 'hono';
-import { randomUUID, randomBytes, createHash } from 'crypto';
+import { randomUUID, randomBytes } from 'crypto';
 import { db, ApiTokenRow } from '../db';
+import { hashToken } from '../lib/crypto';
+
+const VALID_SCOPES = new Set([
+  '*',
+  'collections:read', 'collections:write', 'collections:*',
+  'vocab:read', 'vocab:write', 'vocab:*',
+  'stats:read', 'stats:write', 'stats:*',
+  'settings:read', 'settings:write', 'settings:*',
+  'data:export', 'data:import', 'data:*',
+]);
 
 const app = new Hono();
-
-function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
-}
 
 function generateToken(): string {
   const bytes = randomBytes(32);
@@ -25,6 +31,11 @@ app.post('/', async (c) => {
 
   if (!Array.isArray(scopes) || scopes.length === 0) {
     return c.json({ error: 'Scopes must be a non-empty array' }, 400);
+  }
+
+  const invalid = scopes.filter((s: string) => !VALID_SCOPES.has(s));
+  if (invalid.length > 0) {
+    return c.json({ error: `Invalid scopes: ${invalid.join(', ')}` }, 400);
   }
 
   const token = generateToken();

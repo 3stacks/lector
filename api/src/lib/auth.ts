@@ -1,6 +1,6 @@
 import { createMiddleware } from 'hono/factory';
-import { createHash, timingSafeEqual } from 'crypto';
 import { db, ApiTokenRow } from '../db';
+import { hashToken } from './crypto';
 
 const SCOPE_MAP: Record<string, { read: string; write: string }> = {
   collections:     { read: 'collections:read', write: 'collections:write' },
@@ -23,17 +23,12 @@ const SCOPE_MAP: Record<string, { read: string; write: string }> = {
   'llm-status':    { read: 'settings:read',    write: 'settings:write' },
 };
 
-function hashToken(token: string): Buffer {
-  return createHash('sha256').update(token).digest();
+function getResourceFromPath(path: string): string | null {
+  const segments = path.split('/').filter(Boolean);
+  return segments[1] || null; // segments[0] = 'api'
 }
 
-function getRequiredScope(path: string, method: string): string | null {
-  // Extract resource from path: /api/<resource>/...
-  const segments = path.split('/').filter(Boolean);
-  const resource = segments[1]; // segments[0] = 'api'
-
-  if (!resource || resource === 'tokens') return null; // tokens route is unprotected
-
+function getRequiredScope(resource: string, method: string): string | null {
   const mapping = SCOPE_MAP[resource];
   if (!mapping) return null;
 
@@ -52,6 +47,15 @@ function tokenHasScope(tokenScopes: string[], requiredScope: string): boolean {
   return false;
 }
 
+function parseScopes(scopesJson: string): string[] {
+  try {
+    const parsed = JSON.parse(scopesJson);
+    return Array.isArray(parsed) ? parsed : ['*'];
+  } catch {
+    return ['*'];
+  }
+}
+
 export const authMiddleware = createMiddleware(async (c, next) => {
   const authHeader = c.req.header('Authorization');
 
@@ -68,18 +72,18 @@ export const authMiddleware = createMiddleware(async (c, next) => {
     return c.json({ error: 'Missing token' }, 401);
   }
 
-  // Hash the presented token and look it up
-  const presentedHash = hashToken(token);
-  const rows = db.prepare('SELECT * FROM api_tokens').all() as ApiTokenRow[];
-
-  let matchedToken: ApiTokenRow | null = null;
-  for (const row of rows) {
-    const storedHash = Buffer.from(row.tokenHash, 'hex');
-    if (storedHash.length === presentedHash.length && timingSafeEqual(presentedHash, storedHash)) {
-      matchedToken = row;
-      break;
-    }
+  // Block PAT access to token management routes — tokens can only be
+  // managed via local/unauthenticated access (browser Settings UI)
+  const resource = getResourceFromPath(c.req.path);
+  if (resource === 'tokens') {
+    return c.json({ error: 'Token management is only available via local access' }, 403);
   }
+
+  // Hash the presented token and look it up via indexed column
+  const hex = hashToken(token);
+  const matchedToken = db.prepare(
+    'SELECT * FROM api_tokens WHERE tokenHash = ?'
+  ).get(hex) as ApiTokenRow | undefined;
 
   if (!matchedToken) {
     return c.json({ error: 'Invalid token' }, 401);
@@ -91,20 +95,22 @@ export const authMiddleware = createMiddleware(async (c, next) => {
   }
 
   // Check scope
-  const requiredScope = getRequiredScope(c.req.path, c.req.method);
-  if (requiredScope) {
-    const scopes: string[] = JSON.parse(matchedToken.scopes);
-    if (!tokenHasScope(scopes, requiredScope)) {
-      return c.json({ error: `Insufficient scope. Required: ${requiredScope}` }, 403);
+  if (resource) {
+    const requiredScope = getRequiredScope(resource, c.req.method);
+    if (requiredScope) {
+      const scopes = parseScopes(matchedToken.scopes);
+      if (!tokenHasScope(scopes, requiredScope)) {
+        return c.json({ error: `Insufficient scope. Required: ${requiredScope}` }, 403);
+      }
     }
   }
 
   // Store token info in context for routes that need it
   c.set('tokenId', matchedToken.id);
   c.set('tokenName', matchedToken.name);
-  c.set('tokenScopes', JSON.parse(matchedToken.scopes));
+  c.set('tokenScopes', parseScopes(matchedToken.scopes));
 
-  // Update lastUsedAt (non-blocking)
+  // Update lastUsedAt
   db.prepare('UPDATE api_tokens SET lastUsedAt = ? WHERE id = ?')
     .run(new Date().toISOString(), matchedToken.id);
 

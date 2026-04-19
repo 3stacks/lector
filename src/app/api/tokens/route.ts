@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, ApiTokenRow } from '@/lib/server/database';
-import { randomUUID, randomBytes, createHash } from 'crypto';
-
-function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
-}
+import { randomUUID, randomBytes } from 'crypto';
+import { hashToken } from '@/lib/server/crypto';
 
 // GET /api/tokens - List all tokens (metadata only)
 export async function GET() {

@@ -30,7 +30,11 @@ export class ApiClient {
 
     const text = await res.text();
     if (!text) return {};
-    return JSON.parse(text);
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`Unexpected response from server: ${text.slice(0, 200)}`);
+    }
   }
 
   get(path: string) { return this.request('GET', path); }

@@ -1220,6 +1220,7 @@ export default function SettingsPage() {
                     </div>
                     <button
                       onClick={async () => {
+                        if (!confirm(`Revoke token "${token.name}"? This cannot be undone.`)) return;
                         await revokeApiToken(token.id);
                         setApiTokens((prev) => prev.filter((t) => t.id !== token.id));
                       }}

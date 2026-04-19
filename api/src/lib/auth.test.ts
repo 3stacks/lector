@@ -1,12 +1,9 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { Hono } from 'hono';
-import { createHash, randomBytes, randomUUID } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import { db } from '../db';
 import { authMiddleware } from './auth';
-
-function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
-}
+import { hashToken } from './crypto';
 
 function createTestToken(scopes: string[] = ['*'], expiresAt?: string): string {
   const token = `ltr_${randomBytes(32).toString('base64url')}`;
@@ -29,6 +26,7 @@ function buildApp(): Hono {
   app.post('/api/collections', (c) => c.json({ ok: true }));
   app.get('/api/stats', (c) => c.json({ ok: true }));
   app.get('/api/tokens', (c) => c.json({ ok: true }));
+  app.post('/api/tokens', (c) => c.json({ ok: true }));
   return app;
 }
 
@@ -65,6 +63,13 @@ describe('Auth middleware', () => {
     expect(res.status).toBe(401);
   });
 
+  test('returns 401 for empty Bearer value', async () => {
+    const res = await app.request('/api/collections', {
+      headers: { Authorization: 'Bearer ' },
+    });
+    expect(res.status).toBe(401);
+  });
+
   test('passes through with valid token and wildcard scope', async () => {
     const token = createTestToken(['*']);
     const res = await app.request('/api/collections', {
@@ -79,6 +84,38 @@ describe('Auth middleware', () => {
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(res.status).toBe(200);
+  });
+
+  test('passes through with category wildcard scope', async () => {
+    const token = createTestToken(['collections:*']);
+    const res = await app.request('/api/collections', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
+
+    // Write should also work with category wildcard
+    const res2 = await app.request('/api/collections', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title: 'test' }),
+    });
+    expect(res2.status).toBe(200);
+  });
+
+  test('passes through with multiple specific scopes', async () => {
+    const token = createTestToken(['collections:read', 'stats:read']);
+    const res1 = await app.request('/api/collections', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res1.status).toBe(200);
+
+    const res2 = await app.request('/api/stats', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res2.status).toBe(200);
   });
 
   test('returns 403 for insufficient scope', async () => {
@@ -114,11 +151,18 @@ describe('Auth middleware', () => {
     expect(body.error).toBe('Token has expired');
   });
 
-  test('tokens route is unprotected (no scope check)', async () => {
-    const token = createTestToken(['stats:read']); // no token management scope
+  test('blocks PAT access to token management routes', async () => {
+    const token = createTestToken(['*']);
     const res = await app.request('/api/tokens', {
       headers: { Authorization: `Bearer ${token}` },
     });
+    expect(res.status).toBe(403);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain('local access');
+  });
+
+  test('allows unauthenticated access to token routes', async () => {
+    const res = await app.request('/api/tokens');
     expect(res.status).toBe(200);
   });
 

@@ -97,7 +97,8 @@ test.describe("API Tokens", () => {
     // Token should be listed
     await expect(page.getByText("Test Revoke")).toBeVisible();
 
-    // Click Revoke
+    // Click Revoke and accept confirmation dialog
+    page.on("dialog", (dialog) => dialog.accept());
     const tokenRow = page.locator("div").filter({ hasText: "Test Revoke" }).first();
     await tokenRow.getByRole("button", { name: "Revoke" }).click();
 
