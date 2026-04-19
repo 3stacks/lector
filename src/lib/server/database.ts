@@ -115,6 +115,16 @@ function getDb(): DatabaseType {
       value TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS api_tokens (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      tokenHash TEXT NOT NULL UNIQUE,
+      scopes TEXT NOT NULL DEFAULT '["*"]',
+      createdAt TEXT NOT NULL,
+      lastUsedAt TEXT,
+      expiresAt TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS journal_entries (
       id TEXT PRIMARY KEY,
       body TEXT NOT NULL DEFAULT '',
@@ -423,6 +433,16 @@ export interface SettingRow {
 }
 
 export type JournalStatus = 'draft' | 'submitted';
+
+export interface ApiTokenRow {
+  id: string;
+  name: string;
+  tokenHash: string;
+  scopes: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+}
 
 export interface JournalEntryRow {
   id: string;

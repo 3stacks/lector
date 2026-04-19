@@ -10,7 +10,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "fetch-sentences": "npx tsx scripts/fetch-sentences.ts"
+    "fetch-sentences": "npx tsx scripts/fetch-sentences.ts",
+    "cli": "bun run cli/src/index.ts"
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
