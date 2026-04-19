@@ -21,11 +21,14 @@ import extractUrl from './routes/extract-url';
 import importRoutes from './routes/import';
 import journalCorrect from './routes/journal-correct';
 import llmStatus from './routes/llm-status';
+import tokens from './routes/tokens';
+import { authMiddleware } from './lib/auth';
 
 const app = new Hono();
 
 app.use('*', cors());
 app.use('*', logger());
+app.use('/api/*', authMiddleware);
 
 app.route('/api/collections', collections);
 app.route('/api/lessons', lessons);
@@ -45,6 +48,7 @@ app.route('/api/extract-url', extractUrl);
 app.route('/api/import', importRoutes);
 app.route('/api/journal-correct', journalCorrect);
 app.route('/api/llm-status', llmStatus);
+app.route('/api/tokens', tokens);
 
 // Capture unhandled errors to Sentry/GlitchTip
 app.onError((err, c) => {

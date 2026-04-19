@@ -111,6 +111,16 @@ function getDb(): Database {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS api_tokens (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      tokenHash TEXT NOT NULL UNIQUE,
+      scopes TEXT NOT NULL DEFAULT '["*"]',
+      createdAt TEXT NOT NULL,
+      lastUsedAt TEXT,
+      expiresAt TEXT
+    );
   `);
 
   // Migrations for existing databases
@@ -355,4 +365,14 @@ export interface DailyStatsRow {
 export interface SettingRow {
   key: string;
   value: string;
+}
+
+export interface ApiTokenRow {
+  id: string;
+  name: string;
+  tokenHash: string;
+  scopes: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
 }

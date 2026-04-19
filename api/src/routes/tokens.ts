@@ -1,0 +1,89 @@
+import { Hono } from 'hono';
+import { randomUUID, randomBytes, createHash } from 'crypto';
+import { db, ApiTokenRow } from '../db';
+
+const app = new Hono();
+
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+function generateToken(): string {
+  const bytes = randomBytes(32);
+  const encoded = bytes.toString('base64url');
+  return `ltr_${encoded}`;
+}
+
+// POST /api/tokens - Create a new token
+app.post('/', async (c) => {
+  const body = await c.req.json();
+  const { name, scopes = ['*'], expiresAt } = body;
+
+  if (!name || typeof name !== 'string') {
+    return c.json({ error: 'Name is required' }, 400);
+  }
+
+  if (!Array.isArray(scopes) || scopes.length === 0) {
+    return c.json({ error: 'Scopes must be a non-empty array' }, 400);
+  }
+
+  const token = generateToken();
+  const id = randomUUID();
+  const now = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO api_tokens (id, name, tokenHash, scopes, createdAt, expiresAt)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(id, name, hashToken(token), JSON.stringify(scopes), now, expiresAt || null);
+
+  return c.json({
+    id,
+    name,
+    token, // Plain token - returned ONCE
+    scopes,
+    createdAt: now,
+    expiresAt: expiresAt || null,
+  }, 201);
+});
+
+// GET /api/tokens - List all tokens (metadata only)
+app.get('/', (c) => {
+  const rows = db.prepare('SELECT id, name, scopes, createdAt, lastUsedAt, expiresAt FROM api_tokens ORDER BY createdAt DESC').all() as Omit<ApiTokenRow, 'tokenHash'>[];
+
+  return c.json(rows.map(row => ({
+    ...row,
+    scopes: JSON.parse(row.scopes as string),
+  })));
+});
+
+// POST /api/tokens/verify - Verify the current token
+app.post('/verify', (c) => {
+  const tokenId = c.get('tokenId');
+  const tokenName = c.get('tokenName');
+  const tokenScopes = c.get('tokenScopes');
+
+  if (!tokenId) {
+    return c.json({ valid: false, error: 'No token provided' }, 401);
+  }
+
+  return c.json({
+    valid: true,
+    id: tokenId,
+    name: tokenName,
+    scopes: tokenScopes,
+  });
+});
+
+// DELETE /api/tokens/:id - Revoke a token
+app.delete('/:id', (c) => {
+  const id = c.req.param('id');
+  const result = db.prepare('DELETE FROM api_tokens WHERE id = ?').run(id);
+
+  if (result.changes === 0) {
+    return c.json({ error: 'Token not found' }, 404);
+  }
+
+  return c.json({ success: true });
+});
+
+export default app;

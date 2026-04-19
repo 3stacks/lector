@@ -584,6 +584,49 @@ export async function getAllSettings(): Promise<Record<string, unknown>> {
 }
 
 // ============================================================================
+// Helper Functions - API Tokens
+// ============================================================================
+
+export interface ApiTokenMeta {
+  id: string;
+  name: string;
+  scopes: string[];
+  createdAt: string;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+}
+
+export interface ApiTokenCreateResponse extends ApiTokenMeta {
+  token: string;
+}
+
+export async function getApiTokens(): Promise<ApiTokenMeta[]> {
+  const res = await fetch('/api/tokens');
+  return res.json();
+}
+
+export async function createApiToken(data: {
+  name: string;
+  scopes: string[];
+  expiresAt?: string;
+}): Promise<ApiTokenCreateResponse> {
+  const res = await fetch('/api/tokens', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to create token');
+  }
+  return res.json();
+}
+
+export async function revokeApiToken(id: string): Promise<void> {
+  await fetch(`/api/tokens/${id}`, { method: 'DELETE' });
+}
+
+// ============================================================================
 // Utility Functions
 // ============================================================================
 
