@@ -22,34 +22,38 @@ function getSetting(key: string): string | null {
 export function getProvider(): LLMProvider {
   const name = getSetting('llmProvider') || process.env.LLM_PROVIDER || 'anthropic';
 
-  let model: string | undefined;
-  let url: string | undefined;
-  if (name === 'ollama') {
-    model = getSetting('ollamaModel') || process.env.OLLAMA_MODEL || undefined;
-  } else if (name === 'apfel') {
-    model = getSetting('apfelModel') || process.env.APFEL_MODEL || undefined;
-    url = getSetting('apfelUrl') || process.env.APFEL_URL || undefined;
-  } else {
-    model = process.env.ANTHROPIC_MODEL || undefined;
-  }
-
-  const cacheKey = `${name}:${model || 'default'}:${url || 'default'}`;
-
-  if (cachedProvider && cachedProviderKey === cacheKey) {
-    return cachedProvider;
-  }
-
+  let cacheKey: string;
   switch (name) {
-    case 'anthropic':
-      cachedProvider = new AnthropicProvider(undefined, model);
+    case 'anthropic': {
+      const apiKey = getSetting('anthropicApiKey') || undefined;
+      const oauthToken = getSetting('claudeOauthToken') || undefined;
+      const model = process.env.ANTHROPIC_MODEL || undefined;
+      cacheKey = `anthropic:${apiKey ? 'key' : oauthToken ? 'oauth' : 'env'}:${model || 'default'}`;
+      if (cachedProvider && cachedProviderKey === cacheKey) return cachedProvider;
+      cachedProvider = new AnthropicProvider({ apiKey, oauthToken, model });
       break;
-    case 'apfel':
+    }
+    case 'apfel': {
+      const model = getSetting('apfelModel') || process.env.APFEL_MODEL || undefined;
+      const url = getSetting('apfelUrl') || process.env.APFEL_URL || undefined;
+      cacheKey = `apfel:${model || 'default'}:${url || 'default'}`;
+      if (cachedProvider && cachedProviderKey === cacheKey) return cachedProvider;
       cachedProvider = new ApfelProvider(url, model);
       break;
-    case 'ollama':
-    default:
+    }
+    case 'ollama': {
+      const model = getSetting('ollamaModel') || process.env.OLLAMA_MODEL || undefined;
+      cacheKey = `ollama:${model || 'default'}`;
+      if (cachedProvider && cachedProviderKey === cacheKey) return cachedProvider;
       cachedProvider = new OllamaProvider(undefined, model);
       break;
+    }
+    default: {
+      cacheKey = `${name}:default`;
+      if (cachedProvider && cachedProviderKey === cacheKey) return cachedProvider;
+      cachedProvider = new OllamaProvider();
+      break;
+    }
   }
 
   cachedProviderKey = cacheKey;
