@@ -21,6 +21,8 @@ import {
 import { speak, isTTSAvailable } from '@/lib/tts';
 import { playCorrectSound, playIncorrectSound } from '@/lib/sounds';
 import { addClozeCard, isAnkiConnected } from '@/lib/anki';
+import { translateWord } from '@/lib/claude';
+import { lookupWord } from '@/lib/dictionary';
 
 const ANKI_CLOZE_DECK_SETTING_KEY = 'lector-anki-cloze-deck';
 const DEFAULT_ANKI_CLOZE_DECK = 'Afrikaans::Cloze';
@@ -206,6 +208,14 @@ export default function PracticePage() {
   const [retryQueue, setRetryQueue] = useState<ClozeSentence[]>([]);
   const [blacklistToast, setBlacklistToast] = useState(false);
 
+  // Word definition tooltip state
+  const [wordTooltip, setWordTooltip] = useState<{
+    word: string;
+    translation: string | null;
+    partOfSpeech: string | null;
+    isLoading: boolean;
+  } | null>(null);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const submittingRef = useRef(false);
 
@@ -240,6 +250,46 @@ export default function PracticePage() {
     setPracticeMode(mode);
     localStorage.setItem('cloze-practice-mode', mode);
   }, []);
+
+  // Handle word click for inline definitions
+  const handleWordClick = useCallback(async (word: string) => {
+    if (!current) return;
+    const [cleanWord] = splitTrailingPunctuation(word);
+    if (!cleanWord) return;
+
+    // Show loading state
+    setWordTooltip({ word: cleanWord, translation: null, partOfSpeech: null, isLoading: true });
+
+    // Try local dictionary first (instant, no network)
+    const dictEntry = lookupWord(cleanWord);
+    if (dictEntry) {
+      setWordTooltip({
+        word: cleanWord,
+        translation: dictEntry.translation,
+        partOfSpeech: dictEntry.partOfSpeech || null,
+        isLoading: false,
+      });
+      return;
+    }
+
+    // Fall back to translate API
+    try {
+      const result = await translateWord(cleanWord, current.sentence.sentence);
+      setWordTooltip({
+        word: cleanWord,
+        translation: result.translation,
+        partOfSpeech: result.partOfSpeech || null,
+        isLoading: false,
+      });
+    } catch {
+      setWordTooltip({
+        word: cleanWord,
+        translation: null,
+        partOfSpeech: null,
+        isLoading: false,
+      });
+    }
+  }, [current]);
 
   // Generate MC options when current sentence or queue changes
   const generateMcOptionsForSentence = useCallback((sentence: ClozeSentence, sentenceQueue: ClozeSentence[]) => {
@@ -279,6 +329,7 @@ export default function PracticePage() {
     setAnkiError(null);
     setHintLetters(0);
     setMcFallback(false);
+    setWordTooltip(null);
     submittingRef.current = false;
     setState('practicing');
 
@@ -867,7 +918,13 @@ export default function PracticePage() {
                             </span>
                           )
                         ) : (
-                          word
+                          <span
+                            data-testid="cloze-word"
+                            onClick={() => handleWordClick(word)}
+                            className="cursor-pointer rounded px-0.5 transition-colors hover:bg-blue-100 hover:text-blue-700 dark:hover:bg-blue-900/40 dark:hover:text-blue-300"
+                          >
+                            {word}
+                          </span>
                         )}
                       </span>
                     ))}
@@ -1015,7 +1072,13 @@ export default function PracticePage() {
                           {word}
                         </span>
                       ) : (
-                        word
+                        <span
+                          data-testid="cloze-word"
+                          onClick={() => handleWordClick(word)}
+                          className="cursor-pointer rounded px-0.5 transition-colors hover:bg-blue-100 hover:text-blue-700 dark:hover:bg-blue-900/40 dark:hover:text-blue-300"
+                        >
+                          {word}
+                        </span>
                       )}
                     </span>
                   ))}
@@ -1125,6 +1188,49 @@ export default function PracticePage() {
         )}
 
       </main>
+
+      {/* Word definition tooltip bar */}
+      {wordTooltip && (
+        <div
+          data-testid="word-definition-popup"
+          className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-800"
+        >
+          <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                  {wordTooltip.word}
+                </span>
+                {wordTooltip.partOfSpeech && (
+                  <span className="text-xs italic text-zinc-500 dark:text-zinc-400">
+                    {wordTooltip.partOfSpeech}
+                  </span>
+                )}
+                <span className="text-zinc-400 dark:text-zinc-500">&rarr;</span>
+                {wordTooltip.isLoading ? (
+                  <span className="flex items-center gap-1 text-zinc-500 dark:text-zinc-400">
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                  </span>
+                ) : (
+                  <span className="text-zinc-700 dark:text-zinc-300">
+                    {wordTooltip.translation || 'No translation found'}
+                  </span>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setWordTooltip(null)}
+              className="rounded p-1.5 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-700"
+              title="Close"
+            >
+              <svg className="h-4 w-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
