@@ -22,16 +22,15 @@ export class AnthropicProvider implements LLMProvider {
     // OAuth tokens no longer work with the Messages API directly.
     // Use the Agent SDK (which handles OAuth internally) when we have an OAuth token.
     // Use the Anthropic SDK directly only with API keys.
-    if (oauthToken && !apiKey) {
+    if (apiKey) {
+      this.useAgentSdk = false;
+      this.client = new Anthropic({ apiKey });
+    } else if (oauthToken) {
       this.useAgentSdk = true;
       this.client = null;
     } else {
       this.useAgentSdk = false;
-      if (apiKey) {
-        this.client = new Anthropic({ apiKey });
-      } else {
-        this.client = new Anthropic();
-      }
+      this.client = new Anthropic();
     }
     this.model = options?.model || process.env.ANTHROPIC_MODEL || DEFAULT_MODEL;
   }
