@@ -119,7 +119,7 @@ app.get('/fluency', (c) => {
             100
         );
 
-  // Weekly growth: words marked known in last 7 days vs previous 7 days
+  // Weekly growth: vocab words updated to 'known' in last 7 days vs previous 7 (per-language)
   const today = getTodayDate();
   const d7 = new Date();
   d7.setDate(d7.getDate() - 6);
@@ -134,12 +134,12 @@ app.get('/fluency', (c) => {
   const prevWeekEnd = d8.toISOString().split('T')[0];
 
   const thisWeekRow = db.prepare(
-    'SELECT COALESCE(SUM(wordsMarkedKnown), 0) as total FROM dailyStats WHERE date BETWEEN ? AND ?'
-  ).get(weekStart, today) as { total: number };
+    "SELECT COUNT(*) as total FROM vocab WHERE language = ? AND state = 'known' AND stateUpdatedAt BETWEEN ? AND ?"
+  ).get(language, weekStart, today + 'T23:59:59') as { total: number };
 
   const prevWeekRow = db.prepare(
-    'SELECT COALESCE(SUM(wordsMarkedKnown), 0) as total FROM dailyStats WHERE date BETWEEN ? AND ?'
-  ).get(prevWeekStart, prevWeekEnd) as { total: number };
+    "SELECT COUNT(*) as total FROM vocab WHERE language = ? AND state = 'known' AND stateUpdatedAt BETWEEN ? AND ?"
+  ).get(language, prevWeekStart, prevWeekEnd + 'T23:59:59') as { total: number };
 
   return c.json({
     totalKnownWords,

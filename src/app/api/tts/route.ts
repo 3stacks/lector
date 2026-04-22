@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveLanguage, getActiveLanguageConfig } from '@/lib/server/active-language';
+import { getActiveLanguageConfig } from '@/lib/server/active-language';
 import { isValidLanguageCode, LANGUAGES } from '@/lib/languages';
 
 // Google Cloud TTS API endpoint

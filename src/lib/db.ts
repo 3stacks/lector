@@ -141,6 +141,11 @@ class LectorDB extends Dexie {
 // Create and export the database instance
 export const db = new LectorDB();
 
+// Clean up orphaned legacy IndexedDB (renamed from AfrikaansLearningDB)
+if (typeof indexedDB !== 'undefined') {
+  indexedDB.deleteDatabase('AfrikaansLearningDB');
+}
+
 // ============================================================================
 // Helper Functions - Vocabulary
 // ============================================================================

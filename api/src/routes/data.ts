@@ -6,7 +6,7 @@ import { resolveLanguage } from '../lib/active-language';
 
 const app = new Hono();
 
-// GET /api/data
+// GET /api/data — exports ALL languages (full backup, not filtered by active language)
 app.get('/', (c) => {
   const collections = db.prepare('SELECT * FROM collections').all();
   const lessons = db.prepare('SELECT * FROM lessons').all();

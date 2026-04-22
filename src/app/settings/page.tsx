@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import NavHeader from "@/components/NavHeader";
 import { getDeckNames, isAnkiConnected } from "@/lib/anki";
-import { getTTSMode, setTTSMode, isGoogleTTSConfigured, speak, type TTSMode } from "@/lib/tts";
+import { getTTSMode, setTTSMode, isGoogleTTSConfigured, speak, resetVoiceCache, type TTSMode } from "@/lib/tts";
 import { LANGUAGES, type LanguageCode, DEFAULT_LANGUAGE } from "@/lib/languages";
 import {
   exportAllData,
@@ -194,8 +194,8 @@ export default function SettingsPage() {
     setActiveLanguage(code);
     await setSetting('targetLanguage', code);
     localStorage.setItem('lector-target-language', code);
-    // Reset TTS voice cache when switching languages
-    localStorage.removeItem('lector-tts-voice');
+    // Reset both persistent and in-memory TTS voice cache
+    resetVoiceCache();
   };
 
   // Check Anki connection

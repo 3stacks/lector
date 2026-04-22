@@ -27,11 +27,11 @@ export interface TatoebaSentence {
 }
 
 /**
- * Fetch random Afrikaans sentences with English translations
+ * Fetch random sentences in the target language with English translations
  * @param limit - Maximum number of sentences to fetch (default: 10, max: 100)
  * @returns Array of sentences with translations
  */
-export async function fetchAfrikaansSentences(
+export async function fetchSentences(
   limit: number = 10
 ): Promise<TatoebaSentence[]> {
   try {
@@ -172,7 +172,7 @@ export async function fetchBulkSentences(
 }
 
 /**
- * Search for Afrikaans sentences containing a specific word
+ * Search for sentences containing a specific word
  * @param word - The word to search for
  * @returns Array of sentences containing the word with English translations
  */

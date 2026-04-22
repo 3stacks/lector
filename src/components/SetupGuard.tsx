@@ -7,16 +7,27 @@ import { getSetting } from "@/lib/data-layer";
 export default function SetupGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [ready, setReady] = useState(false);
+
+  // Check localStorage synchronously to avoid flash for returning users
+  const [ready, setReady] = useState(() => {
+    if (typeof window === "undefined") return false;
+    if (pathname === "/setup") return true;
+    return !!localStorage.getItem("lector-target-language");
+  });
 
   useEffect(() => {
-    // Don't redirect if already on setup page
     if (pathname === "/setup") {
       setReady(true);
       return;
     }
 
-    // Check if targetLanguage is set
+    // Fast path: localStorage already has the language
+    if (localStorage.getItem("lector-target-language")) {
+      setReady(true);
+      return;
+    }
+
+    // Slow path: check server setting (first visit or cleared localStorage)
     async function check() {
       try {
         const lang = await getSetting<string>("targetLanguage");
@@ -24,7 +35,6 @@ export default function SetupGuard({ children }: { children: React.ReactNode }) 
           router.replace("/setup");
           return;
         }
-        // Sync to localStorage for client-side TTS/tatoeba use
         localStorage.setItem("lector-target-language", lang);
       } catch {
         // If the API is down, don't block — just continue
@@ -36,7 +46,6 @@ export default function SetupGuard({ children }: { children: React.ReactNode }) 
   }, [pathname, router]);
 
   if (!ready && pathname !== "/setup") {
-    // Show nothing while checking (avoids flash)
     return null;
   }
 

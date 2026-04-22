@@ -17,7 +17,7 @@ const dictionaryMap = new Map<string, DictionaryEntry>();
 
 /**
  * Look up a word in the dictionary
- * @param word - The Afrikaans word to look up (case-insensitive)
+ * @param word - The word to look up (case-insensitive)
  * @returns The dictionary entry or undefined if not found
  */
 export function lookupWord(word: string): DictionaryEntry | undefined {
@@ -26,7 +26,7 @@ export function lookupWord(word: string): DictionaryEntry | undefined {
 
 /**
  * Check if a word exists in the dictionary
- * @param word - The Afrikaans word to check (case-insensitive)
+ * @param word - The word to check (case-insensitive)
  * @returns true if the word is in the dictionary
  */
 export function hasWord(word: string): boolean {
@@ -51,7 +51,7 @@ export function getDictionaryMap(): Map<string, DictionaryEntry> {
 
 /**
  * Get word frequency rank (lower = more common)
- * @param word - The Afrikaans word
+ * @param word - The word to check
  * @returns The rank (1-2000) or undefined if not in top 2000
  */
 export function getWordRank(word: string): number | undefined {

@@ -256,7 +256,7 @@ function speakWithBrowser(text: string, rate: number): void {
 }
 
 /**
- * Speak text in Afrikaans
+ * Speak text in the target language
  * Uses Google Cloud TTS if available, falls back to browser TTS
  * @param text - The text to speak
  * @param rate - Speech rate (default 0.9 for clearer learning)
