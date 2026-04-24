@@ -33,6 +33,33 @@ const darkStateColors: Record<WordState, string> = {
   ignored: 'opacity-40',
 };
 
+// Expand a selection to full word boundaries (pure function, no deps)
+function snapToWordBoundaries(selection: Selection): string {
+  const range = selection.getRangeAt(0);
+
+  const startContainer = range.startContainer;
+  if (startContainer.nodeType === Node.TEXT_NODE) {
+    const text = startContainer.textContent || '';
+    let start = range.startOffset;
+    while (start > 0 && /[\wêëéèôöûüîïáà''ʼ`]/.test(text[start - 1])) {
+      start--;
+    }
+    range.setStart(startContainer, start);
+  }
+
+  const endContainer = range.endContainer;
+  if (endContainer.nodeType === Node.TEXT_NODE) {
+    const text = endContainer.textContent || '';
+    let end = range.endOffset;
+    while (end < text.length && /[\wêëéèôöûüîïáà''ʼ`]/.test(text[end])) {
+      end++;
+    }
+    range.setEnd(endContainer, end);
+  }
+
+  return range.toString().trim();
+}
+
 interface MarkdownReaderProps {
   lesson: Lesson;
   onWordClick: (word: string, sentence: string) => void;
@@ -53,6 +80,7 @@ export default function MarkdownReader({
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const [knownWordsMap, setKnownWordsMap] = useState<Map<string, WordState>>(new Map());
+  const [highlightedPhrase, setHighlightedPhrase] = useState<string[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [scrollPercentage, setScrollPercentage] = useState(0);
 
@@ -125,21 +153,48 @@ export default function MarkdownReader({
       parts.push({ text: text.slice(lastIndex), isWord: false });
     }
 
+    // Find which word indices in this text block are part of the highlighted phrase
+    const phraseHighlightSet = new Set<number>();
+    if (highlightedPhrase.length > 0) {
+      const wordParts = parts.filter((p) => p.isWord);
+      for (let i = 0; i <= wordParts.length - highlightedPhrase.length; i++) {
+        let matches = true;
+        for (let j = 0; j < highlightedPhrase.length; j++) {
+          if (wordParts[i + j].text.toLowerCase() !== highlightedPhrase[j]) {
+            matches = false;
+            break;
+          }
+        }
+        if (matches) {
+          for (let j = 0; j < highlightedPhrase.length; j++) {
+            phraseHighlightSet.add(i + j);
+          }
+          break;
+        }
+      }
+    }
+
     const colors = isDarkMode ? darkStateColors : stateColors;
+    let wordIndex = 0;
 
     return parts.map((part, i) => {
       if (part.isWord) {
+        const currentWordIndex = wordIndex++;
         const state = getWordState(part.text);
         const colorClass = state ? colors[state] : colors.new;
+        const isPhraseHighlighted = phraseHighlightSet.has(currentWordIndex);
 
         return (
           <span
             key={i}
             onClick={(e) => {
+              clearPhraseHighlight();
               const sentence = findSentence(e.currentTarget);
               onWordClick(part.text, sentence);
             }}
+            data-phrase-highlighted={isPhraseHighlighted || undefined}
             className={`cursor-pointer rounded px-0.5 hover:ring-2 hover:ring-blue-400 ${colorClass}`}
+            style={isPhraseHighlighted ? { backgroundColor: 'rgba(99, 102, 241, 0.25)' } : undefined}
           >
             {part.text}
           </span>
@@ -151,18 +206,39 @@ export default function MarkdownReader({
 
   const content = lesson.textContent;
 
+  // Set highlighted phrase words (React state, survives re-renders)
+  const highlightPhrase = useCallback((text: string) => {
+    if (!text) {
+      setHighlightedPhrase([]);
+      return;
+    }
+    setHighlightedPhrase(text.toLowerCase().split(/\s+/));
+  }, []);
+
+  const clearPhraseHighlight = useCallback(() => {
+    setHighlightedPhrase([]);
+  }, []);
+
   // Handle text selection for phrases
   const handleMouseUp = useCallback(() => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) return;
 
-    const selectedText = selection.toString().trim();
-    if (selectedText && selectedText.includes(' ')) {
-      const sentence = findSentence(selection.anchorNode?.parentElement as HTMLElement);
-      selection.removeAllRanges();
-      onWordClick(selectedText, sentence);
-    }
-  }, [onWordClick]);
+    const rawText = selection.toString().trim();
+    if (!rawText || !rawText.includes(' ')) return;
+
+    // Snap to word boundaries
+    const snappedText = snapToWordBoundaries(selection);
+    if (!snappedText || !snappedText.includes(' ')) return;
+
+    const sentence = findSentence(selection.anchorNode?.parentElement as HTMLElement);
+
+    // Clear browser selection but apply our own visual highlight
+    selection.removeAllRanges();
+    highlightPhrase(snappedText);
+
+    onWordClick(snappedText, sentence);
+  }, [onWordClick, highlightPhrase]);
 
   return (
     <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-zinc-900">
