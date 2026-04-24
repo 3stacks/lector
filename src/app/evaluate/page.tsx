@@ -477,7 +477,7 @@ export default function EvaluatePage() {
                     }}
                     className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
                   >
-                    None of these are good enough — I'll write my own
+                    None of these are good enough — I&apos;ll write my own
                   </button>
                 ) : (
                   <div className="space-y-2">

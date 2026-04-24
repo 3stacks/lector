@@ -139,8 +139,8 @@ rules:
         - rooibok (impala)
         - witbrood (white bread)
       contrast_with_separate:
-        - "'n groot pad" (a road that is big)
-        - "'n rooi bok" (a buck that is red)
+        - "'n groot pad (a road that is big)"
+        - "'n rooi bok (a buck that is red)"
     implication: |
       The test is whether the combination has a specialised meaning beyond
       the sum of its parts. "witbrood" is a type of bread, not just any
