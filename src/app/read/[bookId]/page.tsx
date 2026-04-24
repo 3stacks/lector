@@ -192,6 +192,7 @@ export default function ReadPage({
       setWordPanel((prev) => ({
         ...prev,
         isContextLoading: false,
+        isDictionaryResult: false,
         error: 'Failed to get contextual translation.',
       }));
     }
