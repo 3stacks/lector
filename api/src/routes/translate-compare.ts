@@ -1,8 +1,7 @@
 import { Hono } from 'hono';
+import type { Context, Next } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import { getAllProviders } from '../lib/llm';
-import { AnthropicProvider } from '../lib/llm/anthropic';
-import { OllamaProvider } from '../lib/llm/ollama';
 import { db, TranslationEvaluationRow } from '../db';
 import { randomUUID } from 'crypto';
 import { getSpelreelsContext } from '../lib/spelreels';
@@ -10,7 +9,7 @@ import { getSpelreelsContext } from '../lib/spelreels';
 const app = new Hono();
 
 // Simple token auth for eval endpoints exposed via ngrok
-const evalAuth = async (c: any, next: any) => {
+const evalAuth = async (c: Context, next: Next) => {
   const token = process.env.EVAL_TOKEN;
   if (!token) return next(); // No token configured = no auth required
 
@@ -304,7 +303,7 @@ If correction is needed:
           } catch {
             ollamaTranslation = ollamaRaw;
           }
-        } catch (err) {
+        } catch {
           ollamaTranslation = null;
         }
 
