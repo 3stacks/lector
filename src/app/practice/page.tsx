@@ -791,7 +791,7 @@ export default function PracticePage() {
 
               {/* Start button */}
               <button
-                onClick={() => { setRoundType('new'); startRound(); }}
+                onClick={() => startRoundWith(selectedCollection, 'new', roundSize)}
                 disabled={!seeded}
                 className="w-full rounded-xl bg-blue-600 py-3.5 text-lg font-bold text-white transition-all hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
               >
