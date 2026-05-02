@@ -709,3 +709,42 @@ export async function importFromDexie(data: Record<string, unknown[]>): Promise<
   });
   return res.json();
 }
+
+// ============================================================================
+// Helper Functions - Chat
+// ============================================================================
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  provider: string | null;
+  createdAt: string;
+}
+
+export async function getChatMessages(limit: number = 50, before?: string): Promise<ChatMessage[]> {
+  const params = new URLSearchParams({ limit: limit.toString() });
+  if (before) params.set('before', before);
+  const res = await fetch(`/api/chat?${params}`);
+  return res.json();
+}
+
+export async function sendChatMessage(message: string): Promise<{
+  userMessage: ChatMessage;
+  assistantMessage: ChatMessage;
+}> {
+  const res = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to send message');
+  }
+  return res.json();
+}
+
+export async function clearChatMessages(): Promise<void> {
+  await fetch('/api/chat', { method: 'DELETE' });
+}
