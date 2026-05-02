@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Literata } from "next/font/google";
 import "./globals.css";
+import ChatWidget from "@/components/ChatWidget";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -31,6 +32,7 @@ export default function RootLayout({
         className={`${inter.variable} ${literata.variable} font-sans antialiased bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen`}
       >
         {children}
+        <ChatWidget />
         {/* Spacer for mobile bottom nav — invisible on sm+ */}
         <div className="h-16 sm:hidden" aria-hidden="true" />
       </body>
