@@ -58,18 +58,14 @@ app.post('/', async (c) => {
       createdAt: now,
     };
 
-    db.prepare(
-      'INSERT INTO chat_messages (id, role, content, provider, createdAt) VALUES (?, ?, ?, ?, ?)'
-    ).run(userMsg.id, userMsg.role, userMsg.content, userMsg.provider, userMsg.createdAt);
-
-    // Build conversation history for LLM
+    // Build conversation history for LLM (include the new message)
     const recentMessages = db
       .prepare(
         'SELECT * FROM chat_messages ORDER BY createdAt DESC LIMIT ?'
       )
-      .all(MAX_CONTEXT_MESSAGES) as ChatMessageRow[];
+      .all(MAX_CONTEXT_MESSAGES - 1) as ChatMessageRow[];
 
-    const history = recentMessages.reverse();
+    const history = [...recentMessages.reverse(), userMsg];
 
     // Prepend the system prompt to the first user message so it works
     // across all providers (Anthropic API doesn't accept role: 'system')
@@ -97,15 +93,12 @@ app.post('/', async (c) => {
       createdAt: new Date().toISOString(),
     };
 
-    db.prepare(
+    // Save both messages only after LLM succeeds
+    const insertMsg = db.prepare(
       'INSERT INTO chat_messages (id, role, content, provider, createdAt) VALUES (?, ?, ?, ?, ?)'
-    ).run(
-      assistantMsg.id,
-      assistantMsg.role,
-      assistantMsg.content,
-      assistantMsg.provider,
-      assistantMsg.createdAt
     );
+    insertMsg.run(userMsg.id, userMsg.role, userMsg.content, userMsg.provider, userMsg.createdAt);
+    insertMsg.run(assistantMsg.id, assistantMsg.role, assistantMsg.content, assistantMsg.provider, assistantMsg.createdAt);
 
     return c.json({ userMessage: userMsg, assistantMessage: assistantMsg });
   } catch (error) {

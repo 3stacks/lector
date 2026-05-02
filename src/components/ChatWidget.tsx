@@ -126,8 +126,18 @@ export default function ChatWidget() {
       ]);
     } catch (err) {
       console.error('Chat error:', err);
-      // Remove optimistic message on error
-      setMessages((prev) => prev.filter((m) => m.id !== tempUserMsg.id));
+      // Replace optimistic message with error feedback
+      setMessages((prev) => [
+        ...prev.filter((m) => m.id !== tempUserMsg.id),
+        { ...tempUserMsg, id: 'user-' + Date.now() },
+        {
+          id: 'error-' + Date.now(),
+          role: 'assistant' as const,
+          content: 'Sorry, I couldn\'t respond. Check that an LLM provider is configured in Settings.',
+          provider: null,
+          createdAt: new Date().toISOString(),
+        },
+      ]);
     } finally {
       setLoading(false);
       inputRef.current?.focus();
