@@ -138,6 +138,15 @@ function getDb(): DatabaseType {
     );
     CREATE INDEX IF NOT EXISTS idx_journal_entryDate ON journal_entries(entryDate);
     CREATE INDEX IF NOT EXISTS idx_journal_status ON journal_entries(status);
+
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id TEXT PRIMARY KEY,
+      role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+      content TEXT NOT NULL,
+      provider TEXT,
+      createdAt TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_createdAt ON chat_messages(createdAt);
   `);
 
   // Migrations for existing databases
@@ -454,4 +463,12 @@ export interface JournalEntryRow {
   entryDate: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ChatMessageRow {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  provider: string | null;
+  createdAt: string;
 }
